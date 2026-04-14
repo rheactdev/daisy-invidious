@@ -44,7 +44,7 @@ export default function Sidebar({ onChannelClick }: SidebarProps) {
       ) : (
         subs.map((s) => (
           <li key={s.id}>
-            <div className="flex items-center gap-2">
+            <div className="group flex items-center gap-2">
               <button
                 className="flex items-center gap-2 flex-1 min-w-0"
                 onClick={() => onChannelClick(s.channelId, s.channelName)}
@@ -65,12 +65,11 @@ export default function Sidebar({ onChannelClick }: SidebarProps) {
                 <span className="truncate">{s.channelName}</span>
               </button>
                 <button
-                  className="btn btn-ghost btn-xs btn-square btn-error"
+                  className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleUnsubscribe(s.channelId)}
                 >
                   <DeleteIcon size={16} />
                 </button>
-
             </div>
           </li>
         ))

@@ -13,7 +13,7 @@ interface VideoCardProps {
 export default function VideoCard({ video, onPlay }: VideoCardProps) {
   return (
     <div
-      className="card card-sm bg-base-100 shadow-md cursor-pointer hover:shadow-xl transition-all hover:-translate-y-0.5"
+      className="card card-sm bg-base-200 shadow-sm cursor-pointer hover:shadow-xl transition-all"
       onClick={() => onPlay(video.videoId)}
     >
       <figure className="relative">
