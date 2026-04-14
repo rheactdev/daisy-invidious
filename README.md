@@ -230,6 +230,10 @@ deno task lint                              # Lint
 - [Tauri Extension](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode)
 - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
+## Credits
+
+- Everforest theme adapted from [daisyui-themes](https://github.com/dachinat/daisyui-themes) by [@dachinat](https://github.com/dachinat)
+
 ## License
 
 GNU GPLv3
