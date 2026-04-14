@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="tauri-app/public/favicons/web/icon-512.png" alt="DaisyTube" width="128" height="128" />
+  <img src="https://github.com/rheactdev/daisy-invidious/blob/main/tauri-app/public/favicons/web/icons8-close-up-glassmorphism-512.png" alt="DaisyTube" width="128" height="128" />
 </p>
 
 <h1 align="center">DaisyTube</h1>
@@ -159,14 +159,6 @@ pnpm tauri build
 ```
 
 The output will be in `tauri-app/src-tauri/target/release/bundle/`.
-
-### Android (CI)
-
-An Android APK can be built via GitHub Actions. The workflow is at `.github/workflows/android-build.yml` and triggers on `v*` tags or manual dispatch.
-
-> **Note:** The companion sidecar binary does not work on Android. A remote companion server or alternative proxy approach is required for mobile builds.
-
-Required GitHub Secrets: all six `VITE_*` environment variables listed above.
 
 ## How It Works
 
