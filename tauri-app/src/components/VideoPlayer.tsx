@@ -108,10 +108,9 @@ export default function VideoPlayer() {
     if (!details) return;
     let cancelled = false;
     getDatabase().then(async (db) => {
-      const doc = await db.subscriptions
-        .findOne({ selector: { channelId: details.authorId, isDeleted: false } })
-        .exec();
-      if (!cancelled) setIsSubscribed(!!doc);
+      // id === channelId; can't use selector on encrypted channelId field
+      const doc = await db.subscriptions.findOne(details.authorId).exec();
+      if (!cancelled) setIsSubscribed(!!doc && !doc.isDeleted);
     });
     return () => {
       cancelled = true;
@@ -123,9 +122,7 @@ export default function VideoPlayer() {
     const db = await getDatabase();
 
     if (isSubscribed) {
-      const doc = await db.subscriptions
-        .findOne({ selector: { channelId: details.authorId, isDeleted: false } })
-        .exec();
+      const doc = await db.subscriptions.findOne(details.authorId).exec();
       if (doc) await doc.patch({ isDeleted: true });
       setIsSubscribed(false);
       if (userId) syncSubscriptions(userId).catch(console.error);
