@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Routes, Route, useNavigate, useSearchParams, Link, Outlet } from "react-router-dom";
 import "./App.css";
 import SearchBar from "./components/SearchBar";
 import VideoGrid from "./components/VideoGrid";
@@ -12,20 +13,15 @@ import { syncSubscriptions } from "./sync";
 import { Models } from "appwrite";
 import { startCompanion, stopCompanion } from "./companion";
 
-type View = { kind: "search" } | { kind: "player"; videoId: string };
-
-function App() {
-  const [videos, setVideos] = useState<VideoResult[]>([]);
+function Layout() {
   const [isLoading, setIsLoading] = useState(false);
-  const [view, setView] = useState<View>({ kind: "search" });
-  const [searchError, setSearchError] = useState("");
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     startCompanion().catch((e) =>
       console.error("Failed to start companion:", e)
     );
-
     return () => {
       stopCompanion();
     };
@@ -40,27 +36,12 @@ function App() {
     });
   }, []);
 
-  async function handleSearch(query: string) {
-    setIsLoading(true);
-    setSearchError("");
-    setView({ kind: "search" });
-    try {
-      const results = await searchVideos(query);
-      setVideos(results.filter((v) => v.type === "video"));
-    } catch (e) {
-      setSearchError(e instanceof Error ? e.message : "Search failed");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function handlePlay(videoId: string) {
-    setView({ kind: "player", videoId });
-  }
-
-  function handleBack() {
-    setView({ kind: "search" });
-  }
+  const handleSearch = useCallback(
+    (query: string) => {
+      navigate(`/search?q=${encodeURIComponent(query)}`);
+    },
+    [navigate]
+  );
 
   function handleChannelClick(_channelId: string, channelName: string) {
     handleSearch(channelName);
@@ -101,9 +82,10 @@ function App() {
               </svg>
             </label>
           </div>
-          <a href="/" className="flex gap-2 items-center  font-bold text-lg mr-2">
+          <Link to="/" className="flex gap-2 items-center font-bold text-lg mr-2">
             <VideoIcon size={28} />
-            DaisyTube</a>
+            DaisyTube
+          </Link>
           <div className="flex-1">
             <SearchBar onSearch={handleSearch} isLoading={isLoading} />
           </div>
@@ -112,19 +94,7 @@ function App() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-4">
-          {searchError && (
-            <div role="alert" className="alert alert-error alert-soft mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{searchError}</span>
-            </div>
-          )}
-          {view.kind === "search" ? (
-            <VideoGrid videos={videos} onPlay={handlePlay} />
-          ) : (
-            <VideoPlayer videoId={view.videoId} onBack={handleBack} />
-          )}
+          <Outlet context={{ user, isLoading, setIsLoading }} />
         </main>
       </div>
 
@@ -136,10 +106,70 @@ function App() {
           className="drawer-overlay"
         />
         <ul className="menu bg-base-200 min-h-full w-64 p-4">
-          <Sidebar onChannelClick={handleChannelClick} />
+          <Sidebar onChannelClick={handleChannelClick} userId={user?.$id ?? null} />
         </ul>
       </div>
     </div>
+  );
+}
+
+function HomePage() {
+  return (
+    <VideoGrid videos={[]} onPlay={() => {}} />
+  );
+}
+
+function SearchPage() {
+  const [searchParams] = useSearchParams();
+  const [videos, setVideos] = useState<VideoResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const navigate = useNavigate();
+  const query = searchParams.get("q") || "";
+
+  useEffect(() => {
+    if (!query) return;
+    setIsLoading(true);
+    setSearchError("");
+    searchVideos(query)
+      .then((results) => setVideos(results.filter((v) => v.type === "video")))
+      .catch((e) => setSearchError(e instanceof Error ? e.message : "Search failed"))
+      .finally(() => setIsLoading(false));
+  }, [query]);
+
+  function handlePlay(videoId: string) {
+    navigate(`/watch/${videoId}`);
+  }
+
+  return (
+    <>
+      {isLoading && (
+        <div className="flex justify-center py-8">
+          <span className="loading loading-spinner loading-lg" />
+        </div>
+      )}
+      {searchError && (
+        <div role="alert" className="alert alert-error alert-soft mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{searchError}</span>
+        </div>
+      )}
+      {!isLoading && <VideoGrid videos={videos} onPlay={handlePlay} />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<HomePage />} />
+        <Route path="search" element={<SearchPage />} />
+        <Route path="watch/:videoId" element={<VideoPlayer />} />
+      </Route>
+    </Routes>
   );
 }
 

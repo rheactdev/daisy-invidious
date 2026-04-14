@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { getDatabase, Subscription } from "../db";
+import { syncSubscriptions } from "../sync";
 import { MembershipCardIcon } from "./icons/MembershipCardIcon";
 import { DeleteIcon } from "./icons/DeleteIcon";
 
 interface SidebarProps {
   onChannelClick: (channelId: string, channelName: string) => void;
+  userId: string | null;
 }
 
-export default function Sidebar({ onChannelClick }: SidebarProps) {
+export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
   const [subs, setSubs] = useState<Subscription[]>([]);
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function Sidebar({ onChannelClick }: SidebarProps) {
       .findOne({ selector: { channelId, isDeleted: false } })
       .exec();
     if (doc) await doc.patch({ isDeleted: true });
+    if (userId) syncSubscriptions(userId).catch(console.error);
   }
 
   return (

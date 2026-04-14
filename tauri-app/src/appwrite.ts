@@ -1,4 +1,4 @@
-import { Client, Account, Databases, ID, Query, Models } from "appwrite";
+import { Client, Account, Databases, ID, Query, Models, Permission, Role } from "appwrite";
 
 const client = new Client()
   .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
@@ -65,9 +65,9 @@ export async function addCloudSubscription(
     ID.unique(),
     { channelId, channelName, channelThumbnail },
     [
-      `read("user:${userId}")`,
-      `update("user:${userId}")`,
-      `delete("user:${userId}")`,
+      Permission.read(Role.user(userId)),
+      Permission.update(Role.user(userId)),
+      Permission.delete(Role.user(userId)),
     ]
   );
 }

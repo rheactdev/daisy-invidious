@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import { MediaPlayer } from "dashjs";
 import { getVideoDetails, VideoDetails } from "../api";
 import { getDatabase } from "../db";
+import { syncSubscriptions } from "../sync";
+import { Models } from "appwrite";
 
-interface VideoPlayerProps {
-  videoId: string;
-  onBack: () => void;
+interface LayoutContext {
+  user: Models.User<Models.Preferences> | null;
 }
 
-export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
+export default function VideoPlayer() {
+  const { videoId } = useParams<{ videoId: string }>();
+  const navigate = useNavigate();
+  const { user } = useOutletContext<LayoutContext>();
+  const userId = user?.$id ?? null;
   const [details, setDetails] = useState<VideoDetails | null>(null);
   const [error, setError] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -16,6 +22,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
   const playerRef = useRef<ReturnType<ReturnType<typeof MediaPlayer>["create"]> | null>(null);
 
   useEffect(() => {
+    if (!videoId) return;
     setError("");
     setDetails(null);
     getVideoDetails(videoId)
@@ -61,6 +68,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
         .exec();
       if (doc) await doc.patch({ isDeleted: true });
       setIsSubscribed(false);
+      if (userId) syncSubscriptions(userId).catch(console.error);
     } else {
       let thumb = details.authorAvatar ?? "";
       if (thumb.startsWith("//")) thumb = "https:" + thumb;
@@ -72,6 +80,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
         isDeleted: false,
       });
       setIsSubscribed(true);
+      if (userId) syncSubscriptions(userId).catch(console.error);
     }
   }
 
@@ -86,7 +95,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
               </svg>
               <span>{error}</span>
             </div>
-            <button className="btn btn-outline" onClick={onBack}>Go Back</button>
+            <button className="btn btn-outline" onClick={() => navigate(-1)}>Go Back</button>
           </div>
         </div>
       </div>
@@ -110,7 +119,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <button className="btn btn-ghost btn-sm self-start" onClick={onBack}>
+      <button className="btn btn-ghost btn-sm self-start" onClick={() => navigate(-1)}>
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
