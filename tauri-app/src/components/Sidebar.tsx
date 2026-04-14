@@ -24,11 +24,9 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
     return () => sub?.unsubscribe();
   }, []);
 
-  async function handleUnsubscribe(channelId: string) {
+  async function handleUnsubscribe(id: string) {
     const db = await getDatabase();
-    const doc = await db.subscriptions
-      .findOne({ selector: { channelId, isDeleted: false } })
-      .exec();
+    const doc = await db.subscriptions.findOne(id).exec();
     if (doc) await doc.patch({ isDeleted: true });
     if (userId) syncSubscriptions(userId).catch(console.error);
   }
@@ -69,7 +67,7 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
               </button>
                 <button
                   className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleUnsubscribe(s.channelId)}
+                  onClick={(e) => { e.stopPropagation(); handleUnsubscribe(s.id); }}
                 >
                   <DeleteIcon size={16} />
                 </button>

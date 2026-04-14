@@ -6,12 +6,14 @@ import VideoGrid from "./components/VideoGrid";
 import VideoPlayer from "./components/VideoPlayer";
 import Sidebar from "./components/Sidebar";
 import AuthModal from "./components/AuthModal";
-import { searchVideos, VideoResult } from "./api";
+import { searchVideos, getChannelVideos, VideoResult } from "./api";
 import { VideoIcon } from "./components/icons/VideoIcon";
 import { getSession } from "./appwrite";
 import { syncSubscriptions } from "./sync";
+import { getDatabase, Subscription } from "./db";
 import { Models } from "appwrite";
 import { startCompanion, stopCompanion } from "./companion";
+import { SyncIcon } from "./components/icons/SyncIcon";
 
 function Layout() {
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +95,7 @@ function Layout() {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4">
+        <main className="flex-1 overflow-y-auto p-6">
           <Outlet context={{ user, isLoading, setIsLoading }} />
         </main>
       </div>
@@ -114,9 +116,136 @@ function Layout() {
 }
 
 function HomePage() {
+  const [videos, setVideos] = useState<VideoResult[]>([]);
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const navigate = useNavigate();
+
+  // Load subscriptions reactively
+  useEffect(() => {
+    let sub: { unsubscribe: () => void } | undefined;
+    getDatabase().then((db) => {
+      sub = db.subscriptions
+        .find({ selector: { isDeleted: false } })
+        .$.subscribe((docs) => {
+          setSubs(docs.map((d) => d.toMutableJSON()));
+        });
+    });
+    return () => sub?.unsubscribe();
+  }, []);
+
+  async function fetchFeed() {
+    if (subs.length === 0) return;
+    setIsLoading(true);
+    setProgress({ done: 0, total: subs.length });
+
+    const allVideos: VideoResult[] = [];
+    let done = 0;
+
+    const results = await Promise.allSettled(
+      subs.map(async (sub) => {
+        const vids = await getChannelVideos(sub.channelId);
+        done++;
+        setProgress({ done, total: subs.length });
+        return vids;
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        allVideos.push(...r.value);
+      }
+    }
+
+    // Sort by publishedText heuristic — newest first
+    // publishedText is like "2 hours ago", "3 days ago" etc.
+    allVideos.sort((a, b) => {
+      const wa = parseAge(a.publishedText);
+      const wb = parseAge(b.publishedText);
+      return wa - wb;
+    });
+
+    setVideos(allVideos);
+    setLastFetched(new Date());
+    setIsLoading(false);
+  }
+
+  function handlePlay(videoId: string) {
+    navigate(`/watch/${videoId}`);
+  }
+
+  if (subs.length === 0) {
+    return (
+      <div className="hero min-h-[60vh]">
+        <div className="hero-content text-center">
+          <div className="max-w-md flex flex-col items-center gap-2">
+            <VideoIcon size={120} />
+            <h2 className="text-2xl font-bold">Your feed is empty</h2>
+            <p className="opacity-60">Subscribe to channels to see their latest videos here</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <VideoGrid videos={[]} onPlay={() => {}} />
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-bold">Subscription Feed</h2>
+          {lastFetched && (
+            <span className="text-xs opacity-50">
+              Updated {lastFetched.toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={fetchFeed}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <span className="loading loading-spinner loading-xs" />
+              {progress.done}/{progress.total}
+            </>
+          ) : (
+            <>
+              <SyncIcon size={16} />
+              Refresh
+            </>
+          )}
+        </button>
+      </div>
+      {videos.length === 0 && !isLoading ? (
+        <div className="hero min-h-[40vh]">
+          <div className="hero-content text-center">
+            <div className="max-w-md flex flex-col items-center gap-2">
+              <SyncIcon size={120} />
+              <p className="opacity-60">Hit Refresh to load latest videos from your subscriptions</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <VideoGrid videos={videos} onPlay={handlePlay} />
+      )}
+    </div>
   );
+}
+
+/** Parse "X time ago" strings into rough seconds for sorting (lower = more recent) */
+function parseAge(text: string): number {
+  const match = text.match(/(\d+)\s+(second|minute|hour|day|week|month|year)/i);
+  if (!match) return Infinity;
+  const n = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  const multipliers: Record<string, number> = {
+    second: 1, minute: 60, hour: 3600, day: 86400,
+    week: 604800, month: 2592000, year: 31536000,
+  };
+  return n * (multipliers[unit] ?? Infinity);
 }
 
 function SearchPage() {

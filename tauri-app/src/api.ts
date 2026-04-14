@@ -188,7 +188,44 @@ export async function getVideoDetails(
     viewCount: basic.view_count ?? 0,
     dashManifestUrl: getDashManifestUrl(videoId),
   };
-}export function getThumbnailUrl(video: VideoResult): string {
+}
+
+export async function getChannelVideos(channelId: string): Promise<VideoResult[]> {
+  const yt = await getClient();
+  const channel = await yt.getChannel(channelId);
+  const videosTab = await channel.getVideos();
+
+  const seen = new Set<string>();
+  return videosTab.videos
+    .filter((v: { id?: string }) => {
+      if (!v.id || seen.has(v.id)) return false;
+      seen.add(v.id);
+      return true;
+    })
+    .slice(0, 10)
+    .map((v: {
+      id?: string;
+      title?: { text?: string } | string;
+      author?: { name?: string; id?: string; best_thumbnail?: { url?: string } };
+      best_thumbnail?: { url?: string };
+      view_count?: { text?: string };
+      duration?: { seconds?: number; text?: string };
+      published?: { text?: string };
+    }) => ({
+      type: "video",
+      title: (typeof v.title === "object" ? v.title?.text : v.title) ?? "",
+      videoId: v.id ?? "",
+      author: v.author?.name ?? "",
+      authorId: v.author?.id ?? channelId,
+      authorAvatar: v.author?.best_thumbnail?.url ?? "",
+      thumbnail: v.best_thumbnail?.url ?? "",
+      viewCount: parseViewCount(v.view_count?.text),
+      lengthSeconds: v.duration?.seconds ?? 0,
+      publishedText: v.published?.text ?? "",
+    }));
+}
+
+export function getThumbnailUrl(video: VideoResult): string {
   return video.thumbnail;
 }
 

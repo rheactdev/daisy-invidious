@@ -19,22 +19,36 @@ export default function VideoCard({ video, onPlay }: VideoCardProps) {
     >
       <div className="card card-sm bg-base-200 shadow-sm hover:shadow-xl transition-all rounded-box">
         <figure className="relative">
-          <img
-            src={getThumbnailUrl(video)}
-            alt={video.title}
-            className="w-full aspect-video object-cover"
-          />
+          {getThumbnailUrl(video) ? (
+            <img
+              src={getThumbnailUrl(video)}
+              alt={video.title}
+              className="w-full aspect-video object-cover"
+            />
+          ) : (
+            <div className="w-full aspect-video bg-base-300 flex items-center justify-center">
+              <span className="opacity-30 text-4xl">▶</span>
+            </div>
+          )}
           <span className="absolute bottom-2 right-2 badge badge-neutral">
             {formatDuration(video.lengthSeconds)}
           </span>
         </figure>
         <div className="card-body">
           <h2 className="card-title text-sm line-clamp-2 flex items-center gap-2">
-            <div className="avatar">
-              <div className="w-8 rounded-full">
-                <img src={getChannelAvatarUrl(video)} alt={video.author} />
+            {getChannelAvatarUrl(video) ? (
+              <div className="avatar">
+                <div className="w-8 rounded-full">
+                  <img src={getChannelAvatarUrl(video)} alt={video.author} />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="avatar avatar-placeholder">
+                <div className="bg-neutral text-neutral-content w-8 rounded-full">
+                  <span className="text-xs">{video.author[0]}</span>
+                </div>
+              </div>
+            )}
             <span className="line-clamp-2">{video.title}</span>
           </h2>
           <div className="flex flex-row items-center gap-2 w-full">

@@ -18,7 +18,9 @@ export default function VideoPlayer() {
   const [details, setDetails] = useState<VideoDetails | null>(null);
   const [error, setError] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<ReturnType<ReturnType<typeof MediaPlayer>["create"]> | null>(null);
 
   useEffect(() => {
@@ -43,6 +45,76 @@ export default function VideoPlayer() {
       playerRef.current = null;
     };
   }, [details]);
+
+  // Media Session API — OS-level Now Playing controls
+  useEffect(() => {
+    if (!details || !videoRef.current) return;
+    const video = videoRef.current;
+
+    if ("mediaSession" in navigator) {
+      let thumb = details.thumbnailUrl;
+      if (thumb.startsWith("//")) thumb = "https:" + thumb;
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: details.title,
+        artist: details.author,
+        artwork: thumb ? [{ src: thumb, sizes: "512x512", type: "image/jpeg" }] : [],
+      });
+
+      navigator.mediaSession.setActionHandler("play", () => {
+        video.play();
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        video.pause();
+      });
+      navigator.mediaSession.setActionHandler("seekbackward", (evt) => {
+        video.currentTime = Math.max(0, video.currentTime - (evt.seekOffset ?? 10));
+      });
+      navigator.mediaSession.setActionHandler("seekforward", (evt) => {
+        video.currentTime = Math.min(video.duration, video.currentTime + (evt.seekOffset ?? 10));
+      });
+      navigator.mediaSession.setActionHandler("seekto", (evt) => {
+        if (evt.seekTime != null) video.currentTime = evt.seekTime;
+      });
+
+      const updatePosition = () => {
+        if (!isNaN(video.duration)) {
+          navigator.mediaSession.setPositionState({
+            duration: video.duration,
+            playbackRate: video.playbackRate,
+            position: video.currentTime,
+          });
+        }
+      };
+      video.addEventListener("timeupdate", updatePosition);
+
+      return () => {
+        video.removeEventListener("timeupdate", updatePosition);
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.setActionHandler("play", null);
+        navigator.mediaSession.setActionHandler("pause", null);
+        navigator.mediaSession.setActionHandler("seekbackward", null);
+        navigator.mediaSession.setActionHandler("seekforward", null);
+        navigator.mediaSession.setActionHandler("seekto", null);
+      };
+    }
+  }, [details]);
+
+  // Track fullscreen changes
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!videoContainerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      videoContainerRef.current.requestFullscreen();
+    }
+  }
 
   useEffect(() => {
     if (!details) return;
@@ -127,11 +199,28 @@ export default function VideoPlayer() {
       </button>
 
       {details.dashManifestUrl ? (
-        <video
-          ref={videoRef}
-          className="w-full max-h-[70vh] rounded-lg bg-black"
-          controls
-        />
+        <div ref={videoContainerRef} className="relative group rounded-lg overflow-hidden bg-black">
+          <video
+            ref={videoRef}
+            className="w-full max-h-[70vh] bg-black"
+            controls
+          />
+          <button
+            className="absolute top-3 right-3 btn btn-circle btn-sm btn-ghost bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v4m0-4h4m6 10l5 5m0 0v-4m0 4h-4M9 15l-5 5m0 0h4m-4 0v-4m10-6l5-5m0 0h-4m4 0v4" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5m-7 14H4m0 0v-4m0 4l5-5m11 5h-4m4 0v-4m0 4l-5-5" />
+              </svg>
+            )}
+          </button>
+        </div>
       ) : (
         <div role="alert" className="alert alert-warning alert-soft">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
