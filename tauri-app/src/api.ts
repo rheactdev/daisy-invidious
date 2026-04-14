@@ -158,12 +158,18 @@ export async function searchVideos(query: string): Promise<VideoResult[]> {
       videoId: v.id ?? "",
       author: v.author?.name ?? "",
       authorId: v.author?.id ?? "",
-      authorAvatar: v.author?.best_thumbnail?.url ?? "",
-      thumbnail: v.best_thumbnail?.url ?? "",
+      authorAvatar: fixUrl(v.author?.best_thumbnail?.url ?? ""),
+      thumbnail: fixUrl(v.best_thumbnail?.url ?? ""),
       viewCount: parseViewCount(v.view_count?.text),
       lengthSeconds: v.duration?.seconds ?? 0,
       publishedText: v.published?.text ?? "",
     }));
+}
+
+/** Fix protocol-relative URLs */
+function fixUrl(url: string): string {
+  if (url.startsWith("//")) return "https:" + url;
+  return url;
 }
 
 export async function getVideoDetails(
@@ -173,17 +179,18 @@ export async function getVideoDetails(
   const info = await yt.getInfo(videoId);
   const basic = info.basic_info;
 
+  // info.secondary_info.owner.author has the channel avatar
   const ownerThumb =
-    info.page?.[0]?.secondary_info?.owner?.author?.best_thumbnail?.url ?? "";
+    info.secondary_info?.owner?.author?.best_thumbnail?.url ?? "";
 
   return {
     title: basic.title ?? "",
     videoId,
-    thumbnailUrl: basic.thumbnail?.[0]?.url ?? "",
+    thumbnailUrl: fixUrl(basic.thumbnail?.[0]?.url ?? ""),
     description: basic.short_description ?? "",
     author: basic.author ?? "",
     authorId: basic.channel_id ?? "",
-    authorAvatar: ownerThumb,
+    authorAvatar: fixUrl(ownerThumb),
     lengthSeconds: basic.duration ?? 0,
     viewCount: basic.view_count ?? 0,
     dashManifestUrl: getDashManifestUrl(videoId),
@@ -193,6 +200,43 @@ export async function getVideoDetails(
 export async function getChannelVideos(channelId: string): Promise<VideoResult[]> {
   const yt = await getClient();
   const channel = await yt.getChannel(channelId);
+
+  const channelName = channel.metadata?.title ?? "";
+  let channelAvatar = "";
+
+  // Try C4TabbedHeader.author.best_thumbnail
+  const header = channel.header;
+  if (header) {
+    const h = header as unknown as Record<string, unknown>;
+    // C4TabbedHeader has .author.best_thumbnail
+    const author = h.author as { best_thumbnail?: { url?: string }; thumbnails?: { url: string }[] } | undefined;
+    if (author?.best_thumbnail?.url) {
+      channelAvatar = author.best_thumbnail.url;
+    } else if (author?.thumbnails?.length) {
+      channelAvatar = author.thumbnails[0].url;
+    }
+    // PageHeader has .content.image.avatar.image (Thumbnail[])
+    if (!channelAvatar) {
+      const content = h.content as { image?: { avatar?: { image?: { url: string }[] } } } | undefined;
+      if (content?.image?.avatar?.image?.length) {
+        channelAvatar = content.image.avatar.image[0].url;
+      }
+    }
+  }
+
+  // Fallback to metadata avatar/thumbnail
+  if (!channelAvatar) {
+    const avatars = channel.metadata?.avatar as { url: string }[] | undefined;
+    const thumbs = channel.metadata?.thumbnail as { url: string }[] | undefined;
+    if (avatars?.length) {
+      channelAvatar = avatars[0].url;
+    } else if (thumbs?.length) {
+      channelAvatar = thumbs[0].url;
+    }
+  }
+
+  channelAvatar = fixUrl(channelAvatar);
+
   const videosTab = await channel.getVideos();
 
   const seen = new Set<string>();
@@ -215,10 +259,10 @@ export async function getChannelVideos(channelId: string): Promise<VideoResult[]
       type: "video",
       title: (typeof v.title === "object" ? v.title?.text : v.title) ?? "",
       videoId: v.id ?? "",
-      author: v.author?.name ?? "",
+      author: v.author?.name || channelName,
       authorId: v.author?.id ?? channelId,
-      authorAvatar: v.author?.best_thumbnail?.url ?? "",
-      thumbnail: v.best_thumbnail?.url ?? "",
+      authorAvatar: fixUrl(v.author?.best_thumbnail?.url ?? "") || channelAvatar,
+      thumbnail: fixUrl(v.best_thumbnail?.url ?? ""),
       viewCount: parseViewCount(v.view_count?.text),
       lengthSeconds: v.duration?.seconds ?? 0,
       publishedText: v.published?.text ?? "",
