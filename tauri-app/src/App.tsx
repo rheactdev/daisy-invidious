@@ -42,10 +42,10 @@ function App() {
   }
 
   return (
-    <div className="drawer lg:drawer-open h-full">
+    <div className="drawer lg:drawer-open h-screen">
       <input id="sidebar-drawer" type="checkbox" className="drawer-toggle" />
 
-      <div className="drawer-content flex flex-col">
+      <div className="drawer-content flex flex-col overflow-y-auto">
         {/* Navbar */}
         <div className="navbar bg-base-300 gap-2 px-4">
           <div className="flex-none lg:hidden">

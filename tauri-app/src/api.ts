@@ -1,4 +1,15 @@
-const BASE_URL = "https://inv.thepixora.com/api/v1";
+import { invoke } from "@tauri-apps/api/core";
+
+const BASE_URL = "https://api.piped.private.coffee";
+
+async function tauriFetch(url: string): Promise<unknown> {
+  try {
+    const text = await invoke<string>("proxy_fetch", { url });
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(String(e));
+  }
+}
 
 export interface VideoResult {
   type: string;
@@ -6,8 +17,8 @@ export interface VideoResult {
   videoId: string;
   author: string;
   authorId: string;
-  authorUrl: string;
-  videoThumbnails: { quality: string; url: string; width: number; height: number }[];
+  authorAvatar: string;
+  thumbnail: string;
   viewCount: number;
   lengthSeconds: number;
   publishedText: string;
@@ -15,43 +26,115 @@ export interface VideoResult {
 
 export interface FormatStream {
   url: string;
-  itag: string;
-  type: string;
+  format: string;
   quality: string;
-  container: string;
-  resolution: string;
+  mimeType: string;
+  videoOnly: boolean;
 }
 
 export interface VideoDetails {
   title: string;
   videoId: string;
-  videoThumbnails: { quality: string; url: string; width: number; height: number }[];
+  thumbnailUrl: string;
   description: string;
   author: string;
   authorId: string;
-  authorThumbnails: { url: string; width: number; height: number }[];
+  authorAvatar: string;
   lengthSeconds: number;
   viewCount: number;
-  formatStreams: FormatStream[];
+  videoStreams: FormatStream[];
+}
+
+interface PipedSearchResult {
+  items: {
+    url: string;
+    type: string;
+    title: string;
+    thumbnail: string;
+    uploaderName: string;
+    uploaderUrl: string;
+    uploaderAvatar: string;
+    uploadedDate: string;
+    duration: number;
+    views: number;
+    isShort: boolean;
+  }[];
+}
+
+interface PipedStreamResult {
+  title: string;
+  description: string;
+  uploader: string;
+  uploaderUrl: string;
+  uploaderAvatar: string;
+  thumbnailUrl: string;
+  duration: number;
+  views: number;
+  videoStreams: {
+    url: string;
+    format: string;
+    quality: string;
+    mimeType: string;
+    videoOnly: boolean;
+    itag: number;
+  }[];
+}
+
+function extractVideoId(url: string): string {
+  const match = url.match(/[?&]v=([^&]+)/);
+  return match?.[1] ?? url.replace("/watch?v=", "");
+}
+
+function extractChannelId(url: string): string {
+  return url.replace("/channel/", "");
 }
 
 export async function searchVideos(query: string): Promise<VideoResult[]> {
-  const res = await fetch(
-    `${BASE_URL}/search?q=${encodeURIComponent(query)}&type=video`
-  );
-  if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-  return res.json();
+  const data = (await tauriFetch(
+    `${BASE_URL}/search?q=${encodeURIComponent(query)}&filter=videos`
+  )) as PipedSearchResult;
+
+  return data.items
+    .filter((item) => item.type === "stream" && !item.isShort)
+    .map((item) => ({
+      type: "video",
+      title: item.title,
+      videoId: extractVideoId(item.url),
+      author: item.uploaderName,
+      authorId: extractChannelId(item.uploaderUrl),
+      authorAvatar: item.uploaderAvatar ?? "",
+      thumbnail: item.thumbnail,
+      viewCount: item.views,
+      lengthSeconds: item.duration,
+      publishedText: item.uploadedDate ?? "",
+    }));
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-  const res = await fetch(`${BASE_URL}/videos/${encodeURIComponent(videoId)}`);
-  if (!res.ok) throw new Error(`Video fetch failed: ${res.status}`);
-  return res.json();
+  const data = (await tauriFetch(
+    `${BASE_URL}/streams/${encodeURIComponent(videoId)}`
+  )) as PipedStreamResult;
+
+  return {
+    title: data.title,
+    videoId,
+    thumbnailUrl: data.thumbnailUrl,
+    description: data.description,
+    author: data.uploader,
+    authorId: extractChannelId(data.uploaderUrl),
+    authorAvatar: data.uploaderAvatar ?? "",
+    lengthSeconds: data.duration,
+    viewCount: data.views,
+    videoStreams: data.videoStreams,
+  };
 }
 
 export function getThumbnailUrl(video: VideoResult): string {
-  const medium = video.videoThumbnails.find((t) => t.quality === "medium");
-  return medium?.url ?? video.videoThumbnails[0]?.url ?? "";
+  return video.thumbnail;
+}
+
+export function getChannelAvatarUrl(video: { authorAvatar: string }): string {
+  return video.authorAvatar;
 }
 
 export function formatDuration(seconds: number): string {

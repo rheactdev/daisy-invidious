@@ -1,6 +1,7 @@
 import {
   VideoResult,
   getThumbnailUrl,
+  getChannelAvatarUrl,
   formatDuration,
   formatViews,
 } from "../api";
@@ -29,15 +30,15 @@ export default function VideoCard({ video, onPlay }: VideoCardProps) {
         </figure>
         <div className="card-body">
           <h2 className="card-title text-sm line-clamp-2 flex items-center gap-2">
-            <div className="avatar avatar-placeholder">
-              <div className="bg-neutral text-neutral-content w-8 rounded-full">
-                <span className="text-xs">{video.author[0]}</span>
+            <div className="avatar">
+              <div className="w-8 rounded-full">
+                <img src={getChannelAvatarUrl(video)} alt={video.author} />
               </div>
             </div>
             <span className="line-clamp-2">{video.title}</span>
           </h2>
-          <div className="flex flex-row mx-0 px-0 w-full align-center baseline-middle">
-            <span className="text-xs truncate opacity-70">{video.author}</span>
+          <div className="flex flex-row items-center gap-2 w-full">
+            <span className="text-xs truncate opacity-70 flex-1">{video.author}</span>
             <span className="badge badge-sm">{formatViews(video.viewCount)}</span>
             <span className="badge badge-sm">{video.publishedText}</span>
           </div>

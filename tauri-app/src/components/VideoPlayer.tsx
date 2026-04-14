@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getVideoDetails, VideoDetails, FormatStream } from "../api";
+import { getVideoDetails, VideoDetails } from "../api";
 import { getDatabase } from "../db";
 
 interface VideoPlayerProps {
@@ -45,7 +45,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
       if (doc) await doc.patch({ isDeleted: true });
       setIsSubscribed(false);
     } else {
-      let thumb = details.authorThumbnails?.[0]?.url ?? "";
+      let thumb = details.authorAvatar ?? "";
       if (thumb.startsWith("//")) thumb = "https:" + thumb;
       await db.subscriptions.upsert({
         id: details.authorId,
@@ -58,11 +58,11 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
     }
   }
 
-  function getStreamUrl(streams: FormatStream[]): string {
+  function getStreamUrl(streams: VideoDetails["videoStreams"]): string {
     const mp4 = streams.find(
-      (s) => s.container === "mp4" && s.resolution && s.resolution !== "audio only"
+      (s) => !s.videoOnly && s.mimeType?.startsWith("video/mp4") && s.quality !== "LBRY"
     );
-    return mp4?.url ?? streams[0]?.url ?? "";
+    return mp4?.url ?? streams.find((s) => !s.videoOnly)?.url ?? "";
   }
 
   if (error) {
@@ -98,7 +98,7 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
     );
   }
 
-  const streamUrl = getStreamUrl(details.formatStreams);
+  const streamUrl = getStreamUrl(details.videoStreams);
 
   return (
     <div className="flex flex-col gap-4">
