@@ -232,4 +232,4 @@ deno task lint                              # Lint
 
 ## License
 
-MIT
+GNU GPLv3
