@@ -77,7 +77,7 @@ async fn proxy_request(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![proxy_fetch, proxy_request])
         .register_asynchronous_uri_scheme_protocol("stream", |_ctx, request, responder| {
             tauri::async_runtime::spawn(async move {

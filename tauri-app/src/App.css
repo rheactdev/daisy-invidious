@@ -7,5 +7,6 @@
 html, body, #root {
   height: 100%;
   margin: 0;
+  padding-top: env(safe-area-inset-top);
   font-family: "Outfit", sans-serif;
 }

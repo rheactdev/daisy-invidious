@@ -1,11 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-
-interface ProxyResponse {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-}
-
 export interface SponsorSegment {
   segment: [number, number]; // [startTime, endTime]
   category: string;
@@ -39,17 +31,14 @@ export async function getSegments(videoId: string): Promise<SponsorSegment[]> {
     const hash = await sha256Hex(videoId);
     const prefix = hash.slice(0, 4);
 
-    const result = await invoke<ProxyResponse>("proxy_request", {
-      url: `${SB_API}/skipSegments/${prefix}?categories=${encodeURIComponent(JSON.stringify(SKIP_CATEGORIES))}`,
-      method: "GET",
-      headers: {},
-      body: null,
-    });
+    const resp = await fetch(
+      `${SB_API}/skipSegments/${prefix}?categories=${encodeURIComponent(JSON.stringify(SKIP_CATEGORIES))}`
+    );
 
-    if (result.status === 404) return []; // No segments found
-    if (result.status !== 200) return [];
+    if (resp.status === 404) return []; // No segments found
+    if (!resp.ok) return [];
 
-    const allResults: { videoID: string; segments: SponsorSegment[] }[] = JSON.parse(result.body);
+    const allResults: { videoID: string; segments: SponsorSegment[] }[] = await resp.json();
     const match = allResults.find((r) => r.videoID === videoId);
     return match?.segments ?? [];
   } catch (e) {

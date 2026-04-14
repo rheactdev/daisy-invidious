@@ -6,26 +6,12 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "shell:default",
     {
-      "identifier": "shell:allow-execute",
+      "identifier": "http:default",
       "allow": [
-        {
-          "name": "binaries/invidious-companion",
-          "sidecar": true
-        }
+        { "url": "https://*" },
+        { "url": "http://*" }
       ]
-    },
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        {
-          "name": "binaries/invidious-companion",
-          "sidecar": true
-        }
-      ]
-    },
-    "shell:allow-stdin-write",
-    "shell:allow-kill"
+    }
   ]
 }

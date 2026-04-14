@@ -12,22 +12,12 @@ import { getSession } from "./appwrite";
 import { syncSubscriptions } from "./sync";
 import { getDatabase, Subscription } from "./db";
 import { Models } from "appwrite";
-import { startCompanion, stopCompanion } from "./companion";
 import { SyncIcon } from "./components/icons/SyncIcon";
 
 function Layout() {
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    startCompanion().catch((e) =>
-      console.error("Failed to start companion:", e)
-    );
-    return () => {
-      stopCompanion();
-    };
-  }, []);
 
   useEffect(() => {
     getSession().then((u) => {

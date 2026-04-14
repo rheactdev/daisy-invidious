@@ -1,6 +1,4 @@
-import { Innertube, Platform } from "youtubei.js";
-import { invoke } from "@tauri-apps/api/core";
-import { getDashManifestUrl } from "./companion";
+import { Innertube, Platform, FormatUtils } from "youtubei.js";
 
 Platform.shim.eval = (data, env) => {
   const keys = Object.keys(env);
@@ -12,78 +10,6 @@ return { ${exportNames.join(", ")} };`;
   const fn = new Function("__env__", body);
   return fn(values);
 };
-
-interface ProxyResponse {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-}
-
-async function tauriFetch(
-  input: RequestInfo | URL,
-  init?: RequestInit
-): Promise<Response> {
-  let url: string;
-  let method: string;
-  let headers: Record<string, string> = {};
-  let body: string | undefined;
-
-  if (input instanceof Request) {
-    url = input.url;
-    method = init?.method ?? input.method ?? "GET";
-    input.headers.forEach((v, k) => {
-      headers[k] = v;
-    });
-    if (init?.body) {
-      body = typeof init.body === "string" ? init.body : undefined;
-    } else if (input.body) {
-      try {
-        body = await input.text();
-      } catch {
-        // no body
-      }
-    }
-  } else {
-    url = typeof input === "string" ? input : input.toString();
-    method = init?.method ?? "GET";
-  }
-
-  if (init?.headers) {
-    if (init.headers instanceof Headers) {
-      init.headers.forEach((v, k) => {
-        headers[k] = v;
-      });
-    } else if (Array.isArray(init.headers)) {
-      for (const [k, v] of init.headers) {
-        headers[k] = v;
-      }
-    } else {
-      Object.assign(headers, init.headers);
-    }
-  }
-
-  if (init?.body && !body) {
-    if (typeof init.body === "string") {
-      body = init.body;
-    } else if (init.body instanceof ArrayBuffer) {
-      body = new TextDecoder().decode(init.body);
-    } else if (init.body instanceof Uint8Array) {
-      body = new TextDecoder().decode(init.body);
-    }
-  }
-
-  const result = await invoke<ProxyResponse>("proxy_request", {
-    url,
-    method,
-    headers,
-    body: body ?? null,
-  });
-
-  return new Response(result.body, {
-    status: result.status,
-    headers: result.headers,
-  });
-}
 
 export interface VideoResult {
   type: string;
@@ -116,9 +42,9 @@ let ytClient: Innertube | null = null;
 async function getClient(): Promise<Innertube> {
   if (!ytClient) {
     try {
-      ytClient = await Innertube.create({
-        fetch: tauriFetch as unknown as typeof globalThis.fetch,
-      });
+      // globalThis.fetch is overridden by @tauri-apps/plugin-http in main.tsx,
+      // so Innertube will use the native Tauri HTTP plugin on all platforms.
+      ytClient = await Innertube.create();
     } catch (e) {
       console.error("Failed to create Innertube client:", e);
       throw e;
@@ -181,6 +107,37 @@ export async function getVideoDetails(
   const ownerThumb =
     info.secondary_info?.owner?.author?.best_thumbnail?.url ?? "";
 
+  let dashManifestUrl = "";
+  if (info.streaming_data) {
+    // Filter to MP4 only for dash.js compatibility
+    info.streaming_data.adaptive_formats =
+      info.streaming_data.adaptive_formats.filter((f) =>
+        f.mime_type.includes("mp4")
+      );
+
+    const dashXml = await FormatUtils.toDash(
+      info.streaming_data,
+      info.basic_info.is_post_live_dvr,
+      (url: URL) => {
+        // Rewrite URLs to proxy through Tauri's stream:// protocol
+        let videoUrl = url.toString();
+        if (videoUrl.includes("alr=yes")) {
+          videoUrl = videoUrl.replace("alr=yes", "alr=no");
+        } else {
+          videoUrl += "&alr=no";
+        }
+        return `stream://localhost/${encodeURIComponent(videoUrl)}` as unknown as URL;
+      },
+      undefined,
+      info.cpn,
+      undefined,
+      yt.actions,
+    );
+
+    const blob = new Blob([dashXml], { type: "application/dash+xml" });
+    dashManifestUrl = URL.createObjectURL(blob);
+  }
+
   return {
     title: basic.title ?? "",
     videoId,
@@ -191,7 +148,7 @@ export async function getVideoDetails(
     authorAvatar: fixUrl(ownerThumb),
     lengthSeconds: basic.duration ?? 0,
     viewCount: basic.view_count ?? 0,
-    dashManifestUrl: getDashManifestUrl(videoId),
+    dashManifestUrl,
   };
 }
 
