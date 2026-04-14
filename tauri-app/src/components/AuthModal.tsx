@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { login, signup, logout } from "../appwrite";
+import { useState, useRef } from "react";
+import { login, signup, logout, uploadAvatar, getAvatarUrl } from "../appwrite";
 import { Models } from "appwrite";
 
 interface AuthModalProps {
@@ -14,6 +14,10 @@ export default function AuthModal({ user, onAuth }: AuthModalProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [avatarKey, setAvatarKey] = useState(0);
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,19 +44,64 @@ export default function AuthModal({ user, onAuth }: AuthModalProps) {
     onAuth(null);
   }
 
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    try {
+      await uploadAvatar(file, user.$id);
+      setAvatarBroken(false);
+      setAvatarKey((k) => k + 1);
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   if (user) {
+    const avatarUrl = `${getAvatarUrl(user.$id)}&t=${avatarKey}`;
     return (
       <div className="dropdown dropdown-end">
-        <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar avatar-placeholder">
-          <div className="bg-primary text-primary-content w-10 rounded-full">
-            <span>{user.name?.[0] || user.email[0]}</span>
-          </div>
+        <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
+          {avatarBroken ? (
+            <div className="avatar avatar-placeholder">
+              <div className="bg-primary text-primary-content w-10 rounded-full">
+                <span>{user.name?.[0] || user.email[0]}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="w-10 rounded-full">
+              <img
+                src={avatarUrl}
+                alt={user.name || user.email}
+                onError={() => setAvatarBroken(true)}
+              />
+            </div>
+          )}
         </div>
         <ul
           tabIndex={0}
           className="menu menu-sm dropdown-content bg-base-200 rounded-box mt-3 w-52 p-2 shadow z-50"
         >
           <li className="menu-title">{user.name || user.email}</li>
+          <li>
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? (
+                <><span className="loading loading-spinner loading-xs" /> Uploading...</>
+              ) : (
+                "Change avatar"
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </li>
           <li>
             <button onClick={handleLogout}>Sign out</button>
           </li>

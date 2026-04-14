@@ -154,9 +154,9 @@ export async function searchVideos(query: string): Promise<VideoResult[]> {
       published?: { text?: string };
     }) => ({
       type: "video",
-      title: (typeof v.title === "object" ? v.title?.text : v.title) ?? "",
+      title: validText(typeof v.title === "object" ? v.title?.text : v.title as string) || "",
       videoId: v.id ?? "",
-      author: v.author?.name ?? "",
+      author: validText(v.author?.name),
       authorId: v.author?.id ?? "",
       authorAvatar: fixUrl(v.author?.best_thumbnail?.url ?? ""),
       thumbnail: fixUrl(v.best_thumbnail?.url ?? ""),
@@ -170,6 +170,12 @@ export async function searchVideos(query: string): Promise<VideoResult[]> {
 function fixUrl(url: string): string {
   if (url.startsWith("//")) return "https:" + url;
   return url;
+}
+
+/** Return empty string for youtubei.js "N/A" placeholders */
+function validText(text: string | undefined): string {
+  if (!text || text === "N/A") return "";
+  return text;
 }
 
 export async function getVideoDetails(
@@ -203,19 +209,27 @@ export async function getChannelVideos(channelId: string): Promise<VideoResult[]
 
   const channelName = channel.metadata?.title ?? "";
   let channelAvatar = "";
+  let resolvedName = channelName;
 
   // Try C4TabbedHeader.author.best_thumbnail
   const header = channel.header;
   if (header) {
     const h = header as unknown as Record<string, unknown>;
-    // C4TabbedHeader has .author.best_thumbnail
-    const author = h.author as { best_thumbnail?: { url?: string }; thumbnails?: { url: string }[] } | undefined;
+    // C4TabbedHeader has .author with name, best_thumbnail, thumbnails
+    const author = h.author as { name?: string; best_thumbnail?: { url?: string }; thumbnails?: { url: string }[] } | undefined;
+    if (!resolvedName && author?.name) {
+      resolvedName = author.name;
+    }
     if (author?.best_thumbnail?.url) {
       channelAvatar = author.best_thumbnail.url;
     } else if (author?.thumbnails?.length) {
       channelAvatar = author.thumbnails[0].url;
     }
-    // PageHeader has .content.image.avatar.image (Thumbnail[])
+    // PageHeader has .page_title and .content.image.avatar.image (Thumbnail[])
+    if (!resolvedName) {
+      const pageTitle = h.page_title as string | undefined;
+      if (pageTitle) resolvedName = pageTitle;
+    }
     if (!channelAvatar) {
       const content = h.content as { image?: { avatar?: { image?: { url: string }[] } } } | undefined;
       if (content?.image?.avatar?.image?.length) {
@@ -241,9 +255,14 @@ export async function getChannelVideos(channelId: string): Promise<VideoResult[]
 
   const seen = new Set<string>();
   return videosTab.videos
-    .filter((v: { id?: string }) => {
+    .filter((v: { id?: string; badges?: { style?: string; label?: string }[] }) => {
       if (!v.id || seen.has(v.id)) return false;
       seen.add(v.id);
+      // Hide members-only videos
+      if (v.badges?.some((b) =>
+        b.style === "BADGE_STYLE_TYPE_MEMBERS_ONLY" ||
+        b.label?.toLowerCase().includes("members only")
+      )) return false;
       return true;
     })
     .slice(0, 10)
@@ -259,7 +278,7 @@ export async function getChannelVideos(channelId: string): Promise<VideoResult[]
       type: "video",
       title: (typeof v.title === "object" ? v.title?.text : v.title) ?? "",
       videoId: v.id ?? "",
-      author: v.author?.name || channelName,
+      author: validText(v.author?.name) || resolvedName,
       authorId: v.author?.id ?? channelId,
       authorAvatar: fixUrl(v.author?.best_thumbnail?.url ?? "") || channelAvatar,
       thumbnail: fixUrl(v.best_thumbnail?.url ?? ""),

@@ -107,7 +107,7 @@ function Layout() {
           aria-label="close sidebar"
           className="drawer-overlay"
         />
-        <ul className="menu bg-base-200 min-h-full w-64 p-4">
+        <ul className="menu bg-base-200 min-h-full flex flex-col w-64 p-4 justify-between">
           <Sidebar onChannelClick={handleChannelClick} userId={user?.$id ?? null} />
         </ul>
       </div>
@@ -115,11 +115,41 @@ function Layout() {
   );
 }
 
+// Module-level cache so feed survives navigation + app restarts
+const FEED_CACHE_KEY = "daisytube_feed_cache";
+
+function loadFeedCache(): { videos: VideoResult[]; time: Date | null } {
+  try {
+    const raw = localStorage.getItem(FEED_CACHE_KEY);
+    if (!raw) return { videos: [], time: null };
+    const parsed = JSON.parse(raw);
+    return { videos: parsed.videos ?? [], time: parsed.time ? new Date(parsed.time) : null };
+  } catch {
+    return { videos: [], time: null };
+  }
+}
+
+function saveFeedCache(videos: VideoResult[], time: Date) {
+  try {
+    localStorage.setItem(FEED_CACHE_KEY, JSON.stringify({ videos, time: time.toISOString() }));
+  } catch {
+    // storage full — ignore
+  }
+}
+
+let cachedFeedVideos: VideoResult[] = [];
+let cachedFeedTime: Date | null = null;
+
+// Restore from localStorage on first load
+const _restored = loadFeedCache();
+cachedFeedVideos = _restored.videos;
+cachedFeedTime = _restored.time;
+
 function HomePage() {
-  const [videos, setVideos] = useState<VideoResult[]>([]);
+  const [videos, setVideos] = useState<VideoResult[]>(cachedFeedVideos);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [lastFetched, setLastFetched] = useState<Date | null>(cachedFeedTime);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const navigate = useNavigate();
 
@@ -167,8 +197,11 @@ function HomePage() {
       return wa - wb;
     });
 
+    cachedFeedVideos = allVideos;
+    cachedFeedTime = new Date();
+    saveFeedCache(cachedFeedVideos, cachedFeedTime);
     setVideos(allVideos);
-    setLastFetched(new Date());
+    setLastFetched(cachedFeedTime);
     setIsLoading(false);
   }
 
