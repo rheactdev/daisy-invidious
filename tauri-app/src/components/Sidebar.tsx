@@ -18,7 +18,9 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
       sub = db.subscriptions
         .find({ selector: { isDeleted: false } })
         .$.subscribe((docs) => {
-          setSubs(docs.map((d) => d.toMutableJSON()));
+          const list = docs.map((d) => d.toMutableJSON());
+          list.sort((a, b) => a.channelName.localeCompare(b.channelName));
+          setSubs(list);
         });
     });
     return () => sub?.unsubscribe();
