@@ -138,21 +138,13 @@ export async function searchVideos(query: string): Promise<VideoResult[]> {
   const search = await yt.search(query, { type: "video" });
 
   const seen = new Set<string>();
-  return search.videos
-    .filter((v: { id?: string }) => {
+  return (search.videos as any[])
+    .filter((v: any) => {
       if (!v.id || seen.has(v.id)) return false;
       seen.add(v.id);
       return true;
     })
-    .map((v: {
-      id?: string;
-      title?: { text?: string } | string;
-      author?: { name?: string; id?: string; best_thumbnail?: { url?: string } };
-      best_thumbnail?: { url?: string };
-      view_count?: { text?: string };
-      duration?: { seconds?: number; text?: string };
-      published?: { text?: string };
-    }) => ({
+    .map((v: any) => ({
       type: "video",
       title: validText(typeof v.title === "object" ? v.title?.text : v.title as string) || "",
       videoId: v.id ?? "",
@@ -254,27 +246,19 @@ export async function getChannelVideos(channelId: string): Promise<VideoResult[]
   const videosTab = await channel.getVideos();
 
   const seen = new Set<string>();
-  return videosTab.videos
-    .filter((v: { id?: string; badges?: { style?: string; label?: string }[] }) => {
+  return (videosTab.videos as any[])
+    .filter((v: any) => {
       if (!v.id || seen.has(v.id)) return false;
       seen.add(v.id);
       // Hide members-only videos
-      if (v.badges?.some((b) =>
+      if (v.badges?.some((b: any) =>
         b.style === "BADGE_STYLE_TYPE_MEMBERS_ONLY" ||
         b.label?.toLowerCase().includes("members only")
       )) return false;
       return true;
     })
     .slice(0, 10)
-    .map((v: {
-      id?: string;
-      title?: { text?: string } | string;
-      author?: { name?: string; id?: string; best_thumbnail?: { url?: string } };
-      best_thumbnail?: { url?: string };
-      view_count?: { text?: string };
-      duration?: { seconds?: number; text?: string };
-      published?: { text?: string };
-    }) => ({
+    .map((v: any) => ({
       type: "video",
       title: (typeof v.title === "object" ? v.title?.text : v.title) ?? "",
       videoId: v.id ?? "",
