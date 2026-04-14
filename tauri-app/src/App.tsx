@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import SearchBar from "./components/SearchBar";
 import VideoGrid from "./components/VideoGrid";
 import VideoPlayer from "./components/VideoPlayer";
 import Sidebar from "./components/Sidebar";
+import AuthModal from "./components/AuthModal";
 import { searchVideos, VideoResult } from "./api";
 import { VideoIcon } from "./components/icons/VideoIcon";
+import { getSession } from "./appwrite";
+import { syncSubscriptions } from "./sync";
+import { Models } from "appwrite";
+import { startCompanion, stopCompanion } from "./companion";
 
 type View = { kind: "search" } | { kind: "player"; videoId: string };
 
@@ -14,6 +19,26 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<View>({ kind: "search" });
   const [searchError, setSearchError] = useState("");
+  const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
+
+  useEffect(() => {
+    startCompanion().catch((e) =>
+      console.error("Failed to start companion:", e)
+    );
+
+    return () => {
+      stopCompanion();
+    };
+  }, []);
+
+  useEffect(() => {
+    getSession().then((u) => {
+      if (u) {
+        setUser(u);
+        syncSubscriptions(u.$id).catch(console.error);
+      }
+    });
+  }, []);
 
   async function handleSearch(query: string) {
     setIsLoading(true);
@@ -39,6 +64,13 @@ function App() {
 
   function handleChannelClick(_channelId: string, channelName: string) {
     handleSearch(channelName);
+  }
+
+  function handleAuth(u: Models.User<Models.Preferences> | null) {
+    setUser(u);
+    if (u) {
+      syncSubscriptions(u.$id).catch(console.error);
+    }
   }
 
   return (
@@ -69,12 +101,13 @@ function App() {
               </svg>
             </label>
           </div>
-          <div className="flex gap-2 items-center  font-bold text-lg mr-2">
+          <a href="/" className="flex gap-2 items-center  font-bold text-lg mr-2">
             <VideoIcon size={28} />
-            DaisyTube</div>
+            DaisyTube</a>
           <div className="flex-1">
             <SearchBar onSearch={handleSearch} isLoading={isLoading} />
           </div>
+          <AuthModal user={user} onAuth={handleAuth} />
         </div>
 
         {/* Main Content */}

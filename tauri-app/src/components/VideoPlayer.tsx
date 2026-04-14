@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { MediaPlayer } from "dashjs";
 import { getVideoDetails, VideoDetails } from "../api";
 import { getDatabase } from "../db";
 
@@ -11,6 +12,8 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
   const [details, setDetails] = useState<VideoDetails | null>(null);
   const [error, setError] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<ReturnType<ReturnType<typeof MediaPlayer>["create"]> | null>(null);
 
   useEffect(() => {
     setError("");
@@ -19,6 +22,20 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
       .then(setDetails)
       .catch((e) => setError(e.message));
   }, [videoId]);
+
+  // Initialize dash.js when we have the manifest URL
+  useEffect(() => {
+    if (!details?.dashManifestUrl || !videoRef.current) return;
+
+    const player = MediaPlayer().create();
+    player.initialize(videoRef.current, details.dashManifestUrl, true);
+    playerRef.current = player;
+
+    return () => {
+      player.destroy();
+      playerRef.current = null;
+    };
+  }, [details]);
 
   useEffect(() => {
     if (!details) return;
@@ -58,13 +75,6 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
     }
   }
 
-  function getStreamUrl(streams: VideoDetails["videoStreams"]): string {
-    const mp4 = streams.find(
-      (s) => !s.videoOnly && s.mimeType?.startsWith("video/mp4") && s.quality !== "LBRY"
-    );
-    return mp4?.url ?? streams.find((s) => !s.videoOnly)?.url ?? "";
-  }
-
   if (error) {
     return (
       <div className="hero min-h-[60vh]">
@@ -98,8 +108,6 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
     );
   }
 
-  const streamUrl = getStreamUrl(details.videoStreams);
-
   return (
     <div className="flex flex-col gap-4">
       <button className="btn btn-ghost btn-sm self-start" onClick={onBack}>
@@ -109,12 +117,11 @@ export default function VideoPlayer({ videoId, onBack }: VideoPlayerProps) {
         Back to results
       </button>
 
-      {streamUrl ? (
+      {details.dashManifestUrl ? (
         <video
+          ref={videoRef}
           className="w-full max-h-[70vh] rounded-lg bg-black"
           controls
-          autoPlay
-          src={streamUrl}
         />
       ) : (
         <div role="alert" className="alert alert-warning alert-soft">
