@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript" />
   <img src="https://img.shields.io/badge/daisyUI-5-5A0EF8?logo=daisyui" />
-  <img src="https://img.shields.io/badge/License-MIT-green" />
+  <img src="https://img.shields.io/badge/License-GPLv3-green" />
 </p>
 
 ---
