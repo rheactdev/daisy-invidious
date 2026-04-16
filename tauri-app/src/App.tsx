@@ -194,7 +194,9 @@ function HomePage() {
     allVideos.sort((a, b) => {
       const wa = parseAge(a.publishedText);
       const wb = parseAge(b.publishedText);
-      return wa - wb;
+      if (wa < wb) return -1;
+      if (wa > wb) return 1;
+      return 0;
     });
 
     cachedFeedVideos = allVideos;
