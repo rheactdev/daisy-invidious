@@ -67,7 +67,7 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
                                             </div>
                                         </div>
                                     )}
-                                    <span className="truncate">{s.channelName}</span>
+                                    <span className="truncate flex-1 text-left">{s.channelName}</span>
                                 </button>
                                 <button
                                     className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity"
