@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Routes, Route, useNavigate, useSearchParams, Link, Outlet } from "react-router-dom";
+import { Routes, Route, useNavigate, useSearchParams, useParams, Link, Outlet } from "react-router-dom";
 import "./App.css";
 import SearchBar from "./components/SearchBar";
 import VideoGrid from "./components/VideoGrid";
@@ -45,8 +45,8 @@ function Layout() {
     [navigate]
   );
 
-  function handleChannelClick(_channelId: string, channelName: string) {
-    handleSearch(channelName);
+  function handleChannelClick(channelId: string, _channelName: string) {
+    navigate(`/channel/${channelId}`);
   }
 
   function handleAuth(u: Models.User<Models.Preferences> | null) {
@@ -325,12 +325,54 @@ function SearchPage() {
   );
 }
 
+function ChannelPage() {
+  const { channelId } = useParams();
+  const [videos, setVideos] = useState<VideoResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!channelId) return;
+    setIsLoading(true);
+    setError("");
+    getChannelVideos(channelId)
+      .then(setVideos)
+      .catch((e) => setError(e instanceof Error ? e.message : "Load failed"))
+      .finally(() => setIsLoading(false));
+  }, [channelId]);
+
+  function handlePlay(videoId: string) {
+    navigate(`/watch/${videoId}`);
+  }
+
+  return (
+    <>
+      {isLoading && (
+        <div className="flex justify-center py-8">
+          <span className="loading loading-spinner loading-lg" />
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="alert alert-error alert-soft mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+      {!isLoading && <VideoGrid videos={videos} onPlay={handlePlay} />}
+    </>
+  );
+}
+
 function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="search" element={<SearchPage />} />
+        <Route path="channel/:channelId" element={<ChannelPage />} />
         <Route path="watch/:videoId" element={<VideoPlayer />} />
       </Route>
     </Routes>
