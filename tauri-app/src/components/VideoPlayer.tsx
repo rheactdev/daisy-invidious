@@ -205,13 +205,19 @@ export default function VideoPlayer() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {details.authorAvatar ? (
-                <div className="avatar">
+                <div 
+                  className="avatar cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => navigate(`/channel/${details.authorId}`)}
+                >
                   <div className="w-12 rounded-full">
                     <img src={details.authorAvatar} alt={details.author} />
                   </div>
                 </div>
               ) : (
-                <div className="avatar avatar-placeholder">
+                <div 
+                  className="avatar avatar-placeholder cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => navigate(`/channel/${details.authorId}`)}
+                >
                   <div className="bg-primary text-primary-content w-12 rounded-full">
                     <span className="text-lg">{details.author[0]}</span>
                   </div>
@@ -219,7 +225,12 @@ export default function VideoPlayer() {
               )}
               <div className="min-w-0">
                 <h2 className="card-title text-lg">{details.title}</h2>
-                <p className="text-sm opacity-70">{details.author}</p>
+                <p 
+                  className="text-sm opacity-70 cursor-pointer hover:underline"
+                  onClick={() => navigate(`/channel/${details.authorId}`)}
+                >
+                  {details.author}
+                </p>
               </div>
             </div>
             <button
