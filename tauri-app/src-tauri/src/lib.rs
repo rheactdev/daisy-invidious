@@ -18,7 +18,9 @@ async fn proxy_fetch(url: String) -> Result<String, String> {
         let body = resp.text().await.unwrap_or_default();
         return Err(format!("HTTP {} from {}: {}", status.as_u16(), url, body));
     }
-    resp.text().await.map_err(|e| format!("Body read failed: {}", e))
+    resp.text()
+        .await
+        .map_err(|e| format!("Body read failed: {}", e))
 }
 
 #[derive(serde::Serialize)]
@@ -54,7 +56,10 @@ async fn proxy_request(
         req = req.body(b);
     }
 
-    let resp = req.send().await.map_err(|e| format!("Request failed: {}", e))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
     let status = resp.status().as_u16();
 
     let mut resp_headers = HashMap::new();
@@ -64,7 +69,10 @@ async fn proxy_request(
         }
     }
 
-    let resp_body = resp.text().await.map_err(|e| format!("Body read failed: {}", e))?;
+    let resp_body = resp
+        .text()
+        .await
+        .map_err(|e| format!("Body read failed: {}", e))?;
 
     Ok(ProxyResponse {
         status,
@@ -76,6 +84,7 @@ async fn proxy_request(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![proxy_fetch, proxy_request])
@@ -84,11 +93,9 @@ pub fn run() {
                 let uri = request.uri().to_string();
                 // URL is encoded after "stream://localhost/"
                 let video_url = match uri.strip_prefix("stream://localhost/") {
-                    Some(encoded) => {
-                        urlencoding::decode(encoded)
-                            .unwrap_or_default()
-                            .into_owned()
-                    }
+                    Some(encoded) => urlencoding::decode(encoded)
+                        .unwrap_or_default()
+                        .into_owned(),
                     None => {
                         let resp = tauri::http::Response::builder()
                             .status(400)

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 import { getDatabase, Subscription } from "../db";
 import { syncSubscriptions } from "../sync";
 import { MembershipCardIcon } from "./icons/MembershipCardIcon";
@@ -32,6 +34,29 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
         const doc = await db.subscriptions.findOne(id).exec();
         if (doc) await doc.patch({ isDeleted: true });
         if (userId) syncSubscriptions(userId).catch(console.error);
+    }
+
+    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
+    async function checkForUpdates() {
+        try {
+            setIsCheckingUpdate(true);
+            const update = await check();
+            if (update) {
+                const confirmed = confirm(`Update v${update.version} available. Install and restart?`);
+                if (confirmed) {
+                    await update.downloadAndInstall();
+                    await relaunch();
+                }
+            } else {
+                alert('No updates available. You are on the latest version.');
+            }
+        } catch (error) {
+            console.error('Update check failed', error);
+            alert('Failed to check for updates: ' + error);
+        } finally {
+            setIsCheckingUpdate(false);
+        }
     }
 
     return (
@@ -83,8 +108,9 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
             <div>
                 <ul className="menu menu-horizontal bg-base-200 rounded-box">
                     <li>
-                        <a>
+                        <a onClick={checkForUpdates} className={isCheckingUpdate ? "opacity-50 pointer-events-none" : ""}>
                             <SettingsIcon size={24} />
+                            {isCheckingUpdate ? "Checking..." : "Check for Updates"}
                         </a>
                     </li>
                 </ul>
