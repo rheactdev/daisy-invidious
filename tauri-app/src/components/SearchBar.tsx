@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { SearchIcon } from "./icons/SearchIcon";
 
 interface SearchBarProps {
@@ -6,7 +6,7 @@ interface SearchBarProps {
   isLoading: boolean;
 }
 
-export default function SearchBar({ onSearch, isLoading }: SearchBarProps) {
+export default memo(function SearchBar({ onSearch, isLoading }: SearchBarProps) {
   const [query, setQuery] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
@@ -40,4 +40,4 @@ export default function SearchBar({ onSearch, isLoading }: SearchBarProps) {
       </button>
     </form>
   );
-}
+});

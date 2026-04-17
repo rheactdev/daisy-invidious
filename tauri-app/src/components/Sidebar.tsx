@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { getDatabase, Subscription } from "../db";
@@ -29,12 +29,12 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
         return () => sub?.unsubscribe();
     }, []);
 
-    async function handleUnsubscribe(id: string) {
+    const handleUnsubscribe = useCallback(async (id: string) => {
         const db = await getDatabase();
         const doc = await db.subscriptions.findOne(id).exec();
         if (doc) await doc.patch({ isDeleted: true });
         if (userId) syncSubscriptions(userId).catch(console.error);
-    }
+    }, [userId]);
 
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
@@ -74,15 +74,15 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
                 ) : (
                     subs.map((s) => (
                         <li key={s.id}>
-                            <div className="group flex items-center gap-2 w-full min-w-0">
+                            <div className="group flex items-center w-48 justify-between p-2">
                                 <button
-                                    className="flex items-center gap-2 flex-1 min-w-0"
+                                    className="flex items-center gap-2 truncate"
                                     onClick={() => onChannelClick(s.channelId, s.channelName)}
                                 >
                                     {s.channelThumbnail ? (
-                                        <div className="avatar shrink-0">
+                                        <div className="avatar">
                                             <div className="w-7 rounded-full">
-                                                <img src={s.channelThumbnail} alt={s.channelName} />
+                                                <img src={s.channelThumbnail} alt={s.channelName} loading="lazy" decoding="async" />
                                             </div>
                                         </div>
                                     ) : (
@@ -92,7 +92,7 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="truncate flex-1 text-left w-full">{s.channelName}</div>
+                                    <span className="truncate">{s.channelName}</span>
                                 </button>
                                 <button
                                     className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity shrink-0"

@@ -1,10 +1,13 @@
 import { createRxDatabase, addRxPlugin, RxCollection, RxDatabase, removeRxDatabase } from "rxdb";
 import { getRxStorageDexie } from "rxdb/plugins/storage-dexie";
-import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode";
-import { wrappedValidateAjvStorage } from "rxdb/plugins/validate-ajv";
 import { wrappedKeyEncryptionCryptoJsStorage } from "rxdb/plugins/encryption-crypto-js";
 
-addRxPlugin(RxDBDevModePlugin);
+if (import.meta.env.DEV) {
+  // Only load heavy dev plugins during development
+  import("rxdb/plugins/dev-mode").then(({ RxDBDevModePlugin }) => {
+    addRxPlugin(RxDBDevModePlugin);
+  });
+}
 
 const DB_NAME = "daisy_invidious_db";
 const DB_PASSWORD = import.meta.env.VITE_RXDB_PASSWORD;
@@ -38,11 +41,20 @@ type DatabaseCollections = {
   subscriptions: SubscriptionCollection;
 };
 
-const storage = wrappedKeyEncryptionCryptoJsStorage({
-  storage: wrappedValidateAjvStorage({ storage: getRxStorageDexie() }),
-});
+async function getStorage() {
+  const baseStorage = getRxStorageDexie();
+  if (import.meta.env.DEV) {
+    // AJV validator only in dev — catches schema errors early without prod overhead
+    const { wrappedValidateAjvStorage } = await import("rxdb/plugins/validate-ajv");
+    return wrappedKeyEncryptionCryptoJsStorage({
+      storage: wrappedValidateAjvStorage({ storage: baseStorage }),
+    });
+  }
+  return wrappedKeyEncryptionCryptoJsStorage({ storage: baseStorage });
+}
 
 async function createDb(): Promise<RxDatabase<DatabaseCollections>> {
+  const storage = await getStorage();
   try {
     const db = await createRxDatabase<DatabaseCollections>({
       name: DB_NAME,

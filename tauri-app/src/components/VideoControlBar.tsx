@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { PlayIcon } from "./icons/PlayIcon";
 import { PauseIcon } from "./icons/PauseIcon";
 import { Forward10Icon } from "./icons/Forward10Icon";
@@ -68,14 +68,23 @@ export default function VideoControlBar({ videoRef, containerRef, segments = [] 
     };
   }, [containerRef, resetHideTimer]);
 
-  // Sync state from video element
+  // Sync state from video element (throttled via rAF)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    let rafId: number | null = null;
+
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
-    const onTimeUpdate = () => { if (!isSeeking) setCurrentTime(video.currentTime); };
+    const onTimeUpdate = () => {
+      if (isSeeking) return;
+      if (rafId !== null) return; // already scheduled
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (video) setCurrentTime(video.currentTime);
+      });
+    };
     const onDurationChange = () => setDuration(video.duration);
     const onVolumeChange = () => {
       setVolume(video.volume);
@@ -91,6 +100,7 @@ export default function VideoControlBar({ videoRef, containerRef, segments = [] 
     video.addEventListener("loadedmetadata", onLoadedMetadata);
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", onTimeUpdate);
@@ -228,6 +238,23 @@ export default function VideoControlBar({ videoRef, containerRef, segments = [] 
     setShowSpeed(false);
   }
 
+  const segmentMarkers = useMemo(() => {
+    if (duration <= 0) return null;
+    return segments.map((seg) => {
+      const left = (seg.segment[0] / duration) * 100;
+      const width = ((seg.segment[1] - seg.segment[0]) / duration) * 100;
+      const color = CATEGORY_INFO[seg.category]?.color ?? "#ff0000";
+      return (
+        <div
+          key={seg.UUID}
+          className="absolute inset-y-0 opacity-70 hover:opacity-100 transition-opacity"
+          style={{ left: `${left}%`, width: `${width}%`, backgroundColor: color }}
+          title={CATEGORY_INFO[seg.category]?.label ?? seg.category}
+        />
+      );
+    });
+  }, [segments, duration]);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -265,19 +292,7 @@ export default function VideoControlBar({ videoRef, containerRef, segments = [] 
             style={{ width: `${progress}%` }}
           />
           {/* SponsorBlock segment markers */}
-          {duration > 0 && segments.map((seg) => {
-            const left = (seg.segment[0] / duration) * 100;
-            const width = ((seg.segment[1] - seg.segment[0]) / duration) * 100;
-            const color = CATEGORY_INFO[seg.category]?.color ?? "#ff0000";
-            return (
-              <div
-                key={seg.UUID}
-                className="absolute inset-y-0 opacity-70 hover:opacity-100 transition-opacity"
-                style={{ left: `${left}%`, width: `${width}%`, backgroundColor: color }}
-                title={CATEGORY_INFO[seg.category]?.label ?? seg.category}
-              />
-            );
-          })}
+          {segmentMarkers}
           {/* Scrub thumb */}
           <div
             className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-primary rounded-full shadow-md opacity-0 group-hover/progress:opacity-100 transition-opacity"

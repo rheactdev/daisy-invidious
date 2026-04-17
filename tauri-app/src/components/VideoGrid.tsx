@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { VideoResult } from "../api";
 import { SearchIcon } from "./icons/SearchIcon";
 import VideoCard from "./VideoCard";
@@ -10,7 +10,7 @@ interface VideoGridProps {
 
 const PAGE_SIZE = 24;
 
-export default function VideoGrid({ videos, onPlay }: VideoGridProps) {
+export default memo(function VideoGrid({ videos, onPlay }: VideoGridProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 if videos list changes
@@ -67,4 +67,4 @@ export default function VideoGrid({ videos, onPlay }: VideoGridProps) {
       )}
     </div>
   );
-}
+});

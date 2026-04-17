@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import { MediaPlayer } from "dashjs";
 import { getVideoDetails, VideoDetails } from "../api";
@@ -117,7 +117,7 @@ export default function VideoPlayer() {
     };
   }, [details]);
 
-  async function toggleSubscribe() {
+  const toggleSubscribe = useCallback(async () => {
     if (!details) return;
     const db = await getDatabase();
 
@@ -139,7 +139,7 @@ export default function VideoPlayer() {
       setIsSubscribed(true);
       if (userId) syncSubscriptions(userId).catch(console.error);
     }
-  }
+  }, [details, isSubscribed, userId]);
 
   if (error) {
     return (
@@ -219,7 +219,7 @@ export default function VideoPlayer() {
                   onClick={() => navigate(`/channel/${details.authorId}`)}
                 >
                   <div className="bg-primary text-primary-content w-12 rounded-full">
-                    <span className="text-lg">{details.author[0]}</span>
+                    <span className="text-lg">{details.author?.[0]}</span>
                   </div>
                 </div>
               )}

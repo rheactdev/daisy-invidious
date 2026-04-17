@@ -45,16 +45,16 @@ function Layout() {
     [navigate]
   );
 
-  function handleChannelClick(channelId: string, _channelName: string) {
+  const handleChannelClick = useCallback((channelId: string, _channelName: string) => {
     navigate(`/channel/${channelId}`);
-  }
+  }, [navigate]);
 
-  function handleAuth(u: Models.User<Models.Preferences> | null) {
+  const handleAuth = useCallback((u: Models.User<Models.Preferences> | null) => {
     setUser(u);
     if (u) {
       syncSubscriptions(u.$id).catch(console.error);
     }
-  }
+  }, []);
 
   return (
     <div className="drawer lg:drawer-open h-screen">
@@ -107,7 +107,7 @@ function Layout() {
           aria-label="close sidebar"
           className="drawer-overlay"
         />
-        <ul className="menu bg-base-200 min-h-full flex flex-col w-64 p-4 justify-between">
+        <ul className="menu bg-base-200 min-h-full flex flex-col w-full p-4 justify-between">
           <Sidebar onChannelClick={handleChannelClick} userId={user?.$id ?? null} />
         </ul>
       </div>
@@ -166,7 +166,7 @@ function HomePage() {
     return () => sub?.unsubscribe();
   }, []);
 
-  async function fetchFeed() {
+  const fetchFeed = useCallback(async () => {
     if (subs.length === 0) return;
     setIsLoading(true);
     setProgress({ done: 0, total: subs.length });
@@ -174,17 +174,14 @@ function HomePage() {
     const allVideos: VideoResult[] = [];
     let done = 0;
 
-    // Process in batches of 3 to avoid overwhelming Tauri IPC / network
-    const chunkSize = 3;
+    // Process in batches of 5 — network is the bottleneck, not Tauri IPC
+    const chunkSize = 5;
     for (let i = 0; i < subs.length; i += chunkSize) {
       const chunk = subs.slice(i, i + chunkSize);
       const results = await Promise.allSettled(
-        chunk.map(async (sub) => {
-          const vids = await getChannelVideos(sub.channelId);
-          return vids;
-        })
+        chunk.map((sub) => getChannelVideos(sub.channelId))
       );
-      
+
       done += chunk.length;
       setProgress({ done, total: subs.length });
 
@@ -195,27 +192,38 @@ function HomePage() {
       }
     }
 
-    // Sort by publishedText heuristic — newest first
-    // publishedText is like "2 hours ago", "3 days ago" etc.
-    allVideos.sort((a, b) => {
-      const wa = parseAge(a.publishedText);
-      const wb = parseAge(b.publishedText);
-      if (wa < wb) return -1;
-      if (wa > wb) return 1;
-      return 0;
+    // Deduplicate by videoId
+    const seen = new Set<string>();
+    const uniqueVideos = allVideos.filter((v) => {
+      if (seen.has(v.videoId)) return false;
+      seen.add(v.videoId);
+      return true;
     });
 
-    cachedFeedVideos = allVideos;
+    // Sort by publishedText heuristic — newest first
+    uniqueVideos.sort((a, b) => parseAge(a.publishedText) - parseAge(b.publishedText));
+
+    cachedFeedVideos = uniqueVideos;
     cachedFeedTime = new Date();
     saveFeedCache(cachedFeedVideos, cachedFeedTime);
-    setVideos(allVideos);
+    setVideos(uniqueVideos);
     setLastFetched(cachedFeedTime);
     setIsLoading(false);
-  }
+  }, [subs]);
 
-  function handlePlay(videoId: string) {
+  // Auto-refresh if cache older than 30 minutes
+  useEffect(() => {
+    if (subs.length > 0 && cachedFeedTime) {
+      const ageMs = Date.now() - cachedFeedTime.getTime();
+      if (ageMs > 30 * 60 * 1000) {
+        fetchFeed();
+      }
+    }
+  }, [subs, fetchFeed]);
+
+  const handlePlay = useCallback((videoId: string) => {
     navigate(`/watch/${videoId}`);
-  }
+  }, [navigate]);
 
   if (subs.length === 0) {
     return (
@@ -307,9 +315,9 @@ function SearchPage() {
       .finally(() => setIsLoading(false));
   }, [query]);
 
-  function handlePlay(videoId: string) {
+  const handlePlay = useCallback((videoId: string) => {
     navigate(`/watch/${videoId}`);
-  }
+  }, [navigate]);
 
   return (
     <>
@@ -348,9 +356,9 @@ function ChannelPage() {
       .finally(() => setIsLoading(false));
   }, [channelId]);
 
-  function handlePlay(videoId: string) {
+  const handlePlay = useCallback((videoId: string) => {
     navigate(`/watch/${videoId}`);
-  }
+  }, [navigate]);
 
   return (
     <>
