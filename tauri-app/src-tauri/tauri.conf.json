@@ -49,15 +49,13 @@
           "height": 400
         }
       }
-      }
     }
   },
   "plugins": {
     "updater": {
       "endpoints": [
         "https://github.com/patch_shifter/daisy-invidious/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgwNDc3ODhCQUVFMjgzRgpSV1EvS082NmlIY0VDTUV6OTlmTDcxT0JQWVdtUStoNTMwZ2d4R1JjVmVSWjFBZmI0aVhnRTFSdwo="
+      ]
     }
   }
 }

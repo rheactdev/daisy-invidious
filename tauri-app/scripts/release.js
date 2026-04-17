@@ -18,15 +18,25 @@ try {
   
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
-  // 2. Increment minor version
+  // 2. Increment version based on argument
+  const bumpType = process.argv[2] || 'minor';
   const parts = pkg.version.split('.');
   if (parts.length !== 3) {
     console.error('Error: package.version is not in valid semver format (x.y.z)');
     process.exit(1);
   }
   
-  parts[1] = parseInt(parts[1], 10) + 1;
-  parts[2] = 0; // reset patch
+  if (bumpType === 'major') {
+    parts[0] = parseInt(parts[0], 10) + 1;
+    parts[1] = 0;
+    parts[2] = 0;
+  } else if (bumpType === 'patch' || bumpType === 'bugfix') {
+    parts[2] = parseInt(parts[2], 10) + 1;
+  } else {
+    // default to minor
+    parts[1] = parseInt(parts[1], 10) + 1;
+    parts[2] = 0;
+  }
   const newVersion = parts.join('.');
   console.log(`Bumping version from ${pkg.version} to ${newVersion}...`);
 
