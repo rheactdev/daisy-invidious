@@ -174,18 +174,24 @@ function HomePage() {
     const allVideos: VideoResult[] = [];
     let done = 0;
 
-    const results = await Promise.allSettled(
-      subs.map(async (sub) => {
-        const vids = await getChannelVideos(sub.channelId);
-        done++;
-        setProgress({ done, total: subs.length });
-        return vids;
-      })
-    );
+    // Process in batches of 3 to avoid overwhelming Tauri IPC / network
+    const chunkSize = 3;
+    for (let i = 0; i < subs.length; i += chunkSize) {
+      const chunk = subs.slice(i, i + chunkSize);
+      const results = await Promise.allSettled(
+        chunk.map(async (sub) => {
+          const vids = await getChannelVideos(sub.channelId);
+          return vids;
+        })
+      );
+      
+      done += chunk.length;
+      setProgress({ done, total: subs.length });
 
-    for (const r of results) {
-      if (r.status === "fulfilled") {
-        allVideos.push(...r.value);
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          allVideos.push(...r.value);
+        }
       }
     }
 

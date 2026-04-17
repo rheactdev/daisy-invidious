@@ -158,9 +158,19 @@ export async function searchVideos(query: string): Promise<VideoResult[]> {
     }));
 }
 
-/** Fix protocol-relative URLs */
+/** Fix protocol-relative URLs and normalize youtube thumbnails */
 function fixUrl(url: string): string {
-  if (url.startsWith("//")) return "https:" + url;
+  if (!url) return url;
+  if (url.startsWith("//")) url = "https:" + url;
+  
+  // Fix 404s on custom thumbnails
+  url = url.replace(/hqdefault_custom_\d+\.jpg/g, "hqdefault.jpg");
+  
+  // Strip expiring query params from youtube thumbnail domains to avoid 403/404s
+  if (url.includes("i.ytimg.com")) {
+    url = url.split("?")[0];
+  }
+  
   return url;
 }
 

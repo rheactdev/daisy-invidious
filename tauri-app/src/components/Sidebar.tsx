@@ -74,28 +74,28 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
                 ) : (
                     subs.map((s) => (
                         <li key={s.id}>
-                            <div className="group flex items-center gap-2">
+                            <div className="group flex items-center gap-2 w-full min-w-0">
                                 <button
                                     className="flex items-center gap-2 flex-1 min-w-0"
                                     onClick={() => onChannelClick(s.channelId, s.channelName)}
                                 >
                                     {s.channelThumbnail ? (
-                                        <div className="avatar">
+                                        <div className="avatar shrink-0">
                                             <div className="w-7 rounded-full">
                                                 <img src={s.channelThumbnail} alt={s.channelName} />
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="avatar avatar-placeholder">
+                                        <div className="avatar avatar-placeholder shrink-0">
                                             <div className="bg-neutral text-neutral-content w-7 rounded-full">
                                                 <span className="text-xs">{s.channelName[0]}</span>
                                             </div>
                                         </div>
                                     )}
-                                    <span className="truncate flex-1 text-left">{s.channelName}</span>
+                                    <div className="truncate flex-1 text-left w-full">{s.channelName}</div>
                                 </button>
                                 <button
-                                    className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                     onClick={(e) => { e.stopPropagation(); handleUnsubscribe(s.id); }}
                                 >
                                     <DeleteIcon size={16} />

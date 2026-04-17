@@ -54,9 +54,19 @@ try {
     console.log(`Updated tauri.conf.json`);
   }
 
+  // 4.5 Update Cargo.toml
+  const cargoPath = path.join(process.cwd(), 'src-tauri', 'Cargo.toml');
+  if (fs.existsSync(cargoPath)) {
+    let cargo = fs.readFileSync(cargoPath, 'utf8');
+    // Replace version = "x.y.z" under [package]
+    cargo = cargo.replace(/(\[package\][\s\S]*?version\s*=\s*")[^"]+(")/, `$1${newVersion}$2`);
+    fs.writeFileSync(cargoPath, cargo);
+    console.log(`Updated Cargo.toml`);
+  }
+
   // 5. Git commit and tag
   // Add changes from tauri-app to git
-  run(`git add package.json src-tauri/tauri.conf.json`);
+  run(`git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml`);
   
   // Also add the workflow file if it was just created/modified so it's included in the release commit
   try {
