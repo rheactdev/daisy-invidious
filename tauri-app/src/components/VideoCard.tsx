@@ -24,6 +24,7 @@ export default function VideoCard({ video, onPlay }: VideoCardProps) {
               src={getThumbnailUrl(video)}
               alt={video.title}
               className="w-full aspect-video object-cover"
+              loading="lazy"
             />
           ) : (
             <div className="w-full aspect-video bg-base-300 flex items-center justify-center">
@@ -39,7 +40,7 @@ export default function VideoCard({ video, onPlay }: VideoCardProps) {
             {getChannelAvatarUrl(video) ? (
               <div className="avatar">
                 <div className="w-8 rounded-full">
-                  <img src={getChannelAvatarUrl(video)} alt={video.author} />
+                  <img src={getChannelAvatarUrl(video)} alt={video.author} loading="lazy" />
                 </div>
               </div>
             ) : (
