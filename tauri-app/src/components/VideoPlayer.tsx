@@ -24,6 +24,8 @@ export default function VideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<ReturnType<ReturnType<typeof MediaPlayer>["create"]> | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "success" | "error">("idle");
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!videoId) return;
@@ -141,6 +143,34 @@ export default function VideoPlayer() {
     }
   }, [details, isSubscribed, userId]);
 
+  const handleShare = useCallback(async () => {
+    if (!videoId) return;
+    let url = `https://www.youtube.com/watch?v=${videoId}`;
+    if (videoRef.current) {
+      const seconds = Math.floor(videoRef.current.currentTime);
+      if (seconds > 0) {
+        url += `&t=${seconds}s`;
+      }
+    }
+  
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyState("success");
+    } catch (err) {
+      console.error("Copy failed", err);
+      setCopyState("error");
+    }
+ 
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+  
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopyState("idle");
+      copyTimeoutRef.current = null;
+    }, 2000);
+  }, [videoId]);
+
   if (error) {
     return (
       <div className="hero min-h-[60vh]">
@@ -233,12 +263,31 @@ export default function VideoPlayer() {
                 </p>
               </div>
             </div>
-            <button
-              className={`btn ${isSubscribed ? "btn-error btn-outline" : "btn-primary"}`}
-              onClick={toggleSubscribe}
-            >
-              {isSubscribed ? "Unsubscribe" : "Subscribe"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className={`btn btn-sm ${
+                  copyState === "success"
+                    ? "btn-success"
+                    : copyState === "error"
+                    ? "btn-error"
+                    : "btn-outline"
+                }`}
+                onClick={handleShare}
+              >
+                {copyState === "success"
+                  ? "Copied!"
+                  : copyState === "error"
+                  ? "Failed"
+                  : "Share"}
+              </button>
+
+              <button
+                className={`btn ${isSubscribed ? "btn-error btn-outline" : "btn-primary"}`}
+                onClick={toggleSubscribe}
+              >
+                {isSubscribed ? "Unsubscribe" : "Subscribe"}
+              </button>
+            </div>
           </div>
           <div className="divider my-1" />
           <p className="text-sm opacity-60 whitespace-pre-wrap max-h-48 overflow-y-auto">
