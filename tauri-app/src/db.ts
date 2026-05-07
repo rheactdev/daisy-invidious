@@ -10,8 +10,6 @@ if (import.meta.env.DEV) {
 }
 
 const DB_NAME = "daisy_invidious_db";
-const DB_PASSWORD = import.meta.env.VITE_RXDB_PASSWORD;
-
 export interface Subscription {
   id: string;
   channelId: string;
@@ -53,14 +51,13 @@ async function getStorage() {
   return wrappedKeyEncryptionCryptoJsStorage({ storage: baseStorage });
 }
 
-async function createDb(): Promise<RxDatabase<DatabaseCollections>> {
+async function createDb(password: string): Promise<RxDatabase<DatabaseCollections>> {
   const storage = await getStorage();
   try {
     const db = await createRxDatabase<DatabaseCollections>({
       name: DB_NAME,
       storage,
-      password: DB_PASSWORD,
-      ignoreDuplicate: true,
+      password,
     });
     await db.addCollections({
       subscriptions: { schema: subscriptionSchema },
@@ -68,18 +65,7 @@ async function createDb(): Promise<RxDatabase<DatabaseCollections>> {
     return db;
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes("different password")) {
-      console.warn("RxDB password mismatch — removing old database and recreating");
-      await removeRxDatabase(DB_NAME, storage);
-      const db = await createRxDatabase<DatabaseCollections>({
-        name: DB_NAME,
-        storage,
-        password: DB_PASSWORD,
-        ignoreDuplicate: true,
-      });
-      await db.addCollections({
-        subscriptions: { schema: subscriptionSchema },
-      });
-      return db;
+      throw new Error("Incorrect password for the database.");
     }
     throw e;
   }
@@ -87,9 +73,34 @@ async function createDb(): Promise<RxDatabase<DatabaseCollections>> {
 
 let dbPromise: Promise<RxDatabase<DatabaseCollections>> | null = null;
 
-export function getDatabase(): Promise<RxDatabase<DatabaseCollections>> {
+export function initDatabase(password: string): Promise<RxDatabase<DatabaseCollections>> {
   if (!dbPromise) {
-    dbPromise = createDb();
+    dbPromise = createDb(password).catch((e) => {
+      // Clear the promise on failure so we can try again
+      dbPromise = null;
+      throw e;
+    });
   }
   return dbPromise;
+}
+
+export function getDatabase(): Promise<RxDatabase<DatabaseCollections>> {
+  if (!dbPromise) {
+    throw new Error("Database not initialized. Call initDatabase first.");
+  }
+  return dbPromise;
+}
+
+export async function checkDbExists(): Promise<boolean> {
+  if (!window.indexedDB || !window.indexedDB.databases) {
+    return false;
+  }
+  const dbs = await window.indexedDB.databases();
+  return dbs.some((db) => db.name && db.name.includes(DB_NAME));
+}
+
+export async function resetDatabase(): Promise<void> {
+  const storage = await getStorage();
+  await removeRxDatabase(DB_NAME, storage);
+  dbPromise = null;
 }

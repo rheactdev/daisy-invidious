@@ -6,6 +6,7 @@ import VideoGrid from "./components/VideoGrid";
 import VideoPlayer from "./components/VideoPlayer";
 import Sidebar from "./components/Sidebar";
 import AuthModal from "./components/AuthModal";
+import PasswordPrompt from "./components/PasswordPrompt";
 import { searchVideos, getChannelVideos, VideoResult } from "./api";
 import { VideoIcon } from "./components/icons/VideoIcon";
 import { getSession } from "./appwrite";
@@ -381,6 +382,12 @@ function ChannelPage() {
 }
 
 function App() {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  if (!isUnlocked) {
+    return <PasswordPrompt onUnlock={() => setIsUnlocked(true)} />;
+  }
+
   return (
     <Routes>
       <Route element={<Layout />}>
