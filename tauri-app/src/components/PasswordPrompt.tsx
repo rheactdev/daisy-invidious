@@ -15,15 +15,28 @@ export default function PasswordPrompt({ onUnlock }: Props) {
   const [showConfirmReset, setShowConfirmReset] = useState(false);
 
   useEffect(() => {
-    checkDbExists().then((exists) => {
-      setIsSetup(!exists);
-      if (!exists) {
+    checkDbExists().then(async (exists) => {
+      if (exists) {
+        const cached = localStorage.getItem("rxdb_password");
+        if (cached) {
+          try {
+            await initDatabase(cached);
+            onUnlock();
+            return; // Automatically unlocked
+          } catch (e) {
+            // Password invalid or DB corrupted, prompt user
+            localStorage.removeItem("rxdb_password");
+          }
+        }
+        setIsSetup(false);
+      } else {
+        setIsSetup(true);
         // Auto-generate secure password for new setup
         setPassword(crypto.randomUUID() + "-" + crypto.randomUUID().slice(0, 8));
       }
       setIsChecking(false);
     });
-  }, []);
+  }, [onUnlock]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +45,7 @@ export default function PasswordPrompt({ onUnlock }: Props) {
 
     try {
       await initDatabase(password);
+      localStorage.setItem("rxdb_password", password);
       onUnlock();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to initialize database");
@@ -45,6 +59,7 @@ export default function PasswordPrompt({ onUnlock }: Props) {
     setIsLoading(true);
     try {
       await resetDatabase();
+      localStorage.removeItem("rxdb_password");
       setIsSetup(true);
       setPassword(crypto.randomUUID() + "-" + crypto.randomUUID().slice(0, 8));
       setShowConfirmReset(false);

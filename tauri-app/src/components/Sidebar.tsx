@@ -62,9 +62,27 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
     return (
         <>
             <div>
-                <li className="menu-title flex flex-row items-center justify-start gap-2 px-2 my-0 py-0">
-                    <MembershipCardIcon size={36} />
-                    <span>Subscriptions</span>
+                <li className="menu-title flex flex-row items-center px-2 my-0 py-0">
+                    <label htmlFor="sidebar-drawer" aria-label="close sidebar" className="btn btn-ghost btn-square btn-sm lg:hidden">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            className="inline-block h-6 w-6 stroke-current text-base-content"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M4 6h16M4 12h16M4 18h16"
+                            />
+                        </svg>
+                    </label>
+                    <div className="flex flex-row items-center gap-2">
+                        <MembershipCardIcon size={36} />
+                        <span>Subscriptions</span>
+                    </div>
+
                 </li>
                 <div className="divider m-0 p-0" />
                 {subs.length === 0 ? (
@@ -74,14 +92,14 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
                 ) : (
                     subs.map((s) => (
                         <li key={s.id}>
-                            <div className="group flex items-center w-48 justify-between p-2">
+                            <div className="group flex items-center lg:w-48 w-90/100 justify-between lg:p-2 lg:my-0 my-1 py-4">
                                 <button
                                     className="flex items-center gap-2 truncate"
                                     onClick={() => onChannelClick(s.channelId, s.channelName)}
                                 >
                                     {s.channelThumbnail ? (
                                         <div className="avatar">
-                                            <div className="w-7 rounded-full">
+                                            <div className="lg:w-7 w-10 rounded-full">
                                                 <img src={s.channelThumbnail} alt={s.channelName} loading="lazy" decoding="async" />
                                             </div>
                                         </div>
@@ -95,7 +113,7 @@ export default function Sidebar({ onChannelClick, userId }: SidebarProps) {
                                     <span className="truncate">{s.channelName}</span>
                                 </button>
                                 <button
-                                    className="btn btn-ghost btn-xs btn-square btn-error opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                    className="btn btn-ghost btn-xs btn-square btn-error lg:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                     onClick={(e) => { e.stopPropagation(); handleUnsubscribe(s.id); }}
                                 >
                                     <DeleteIcon size={16} />

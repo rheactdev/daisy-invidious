@@ -10,7 +10,20 @@ export function getCompanionBase(): string {
   return COMPANION_BASE;
 }
 
-export function getDashManifestUrl(videoId: string): string {
+export async function getDashManifestUrl(videoId: string): Promise<string> {
+  const isAndroid = (window as any).__TAURI_INTERNALS__?.platform === "android";
+  
+  if (isAndroid) {
+    try {
+      const response = await invoke<{dashUrl: string}>("plugin:newpipe|get_dash_url", { videoId });
+      const rewrittenXml = await invoke<string>("fetch_and_rewrite_manifest", { url: response.dashUrl });
+      return URL.createObjectURL(new Blob([rewrittenXml], { type: "application/dash+xml" }));
+    } catch (e) {
+      console.error("Failed to fetch dash manifest from NewPipe:", e);
+      throw e;
+    }
+  }
+
   return `${COMPANION_BASE}/companion/api/manifest/dash/id/${videoId}?local=true`;
 }
 

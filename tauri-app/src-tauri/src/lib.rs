@@ -81,13 +81,50 @@ async fn proxy_request(
     })
 }
 
+#[tauri::command]
+async fn fetch_and_rewrite_manifest(url: String) -> Result<String, String> {
+    let client = build_reqwest_client();
+    let resp = client.get(&url).send().await.map_err(|e| format!("Request failed: {}", e))?;
+    
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {} fetching manifest", resp.status().as_u16()));
+    }
+    
+    let mut xml = resp.text().await.map_err(|e| format!("Body read failed: {}", e))?;
+    
+    // YouTube's DASH manifests usually have a single <BaseURL> or relative paths
+    // We can inject a BaseURL inside each <Representation> or globally to force routing through proxy
+    // For simplicity, we replace existing BaseURL or inject our proxy prefix.
+    // The proxy expects the full YouTube chunk URL to be URL-encoded after stream://localhost/
+    // Since replacing XML safely requires parsing, a simple hack is to wrap the BaseURL
+    // Wait, the easiest way for dashjs is if we don't modify the manifest but rather register
+    // an interceptor in dashjs. But if we must modify the manifest:
+    // Actually, `invidious-companion` rewrites the `<BaseURL>` tags.
+    // YouTube sets `<BaseURL>https://...</BaseURL>`. We can just regex replace it.
+    let re = regex::Regex::new(r"<BaseURL>(.*?)</BaseURL>").unwrap();
+    xml = re.replace_all(&xml, |caps: &regex::Captures| {
+        let base = &caps[1];
+        let encoded = urlencoding::encode(base);
+        format!("<BaseURL>stream://localhost/{}</BaseURL>", encoded)
+    }).to_string();
+    
+    Ok(xml)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
+    let mut builder = tauri::Builder::default();
+    
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![proxy_fetch, proxy_request])
+        .plugin(tauri_plugin_newpipe::init())
+        .invoke_handler(tauri::generate_handler![proxy_fetch, proxy_request, fetch_and_rewrite_manifest])
         .register_asynchronous_uri_scheme_protocol("stream", |_ctx, request, responder| {
             tauri::async_runtime::spawn(async move {
                 let uri = request.uri().to_string();

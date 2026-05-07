@@ -48,6 +48,10 @@ function Layout() {
 
   const handleChannelClick = useCallback((channelId: string, _channelName: string) => {
     navigate(`/channel/${channelId}`);
+    const drawer = document.getElementById("sidebar-drawer") as HTMLInputElement;
+    if (drawer) {
+      drawer.checked = false;
+    }
   }, [navigate]);
 
   const handleAuth = useCallback((u: Models.User<Models.Preferences> | null) => {
@@ -351,7 +355,7 @@ function ChannelPage() {
     if (!channelId) return;
     setIsLoading(true);
     setError("");
-    getChannelVideos(channelId)
+    console.log("Fetching channel", channelId); getChannelVideos(channelId).then(v => { console.log("Fetched videos", v.length); return v; })
       .then(setVideos)
       .catch((e) => setError(e instanceof Error ? e.message : "Load failed"))
       .finally(() => setIsLoading(false));

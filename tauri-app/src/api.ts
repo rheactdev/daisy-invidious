@@ -134,6 +134,22 @@ function parseViewCount(text: string | undefined): number {
 }
 
 export async function searchVideos(query: string): Promise<VideoResult[]> {
+  const isAndroid = (window as any).__TAURI_INTERNALS__?.platform === "android";
+  if (isAndroid) {
+    try {
+      const response = await invoke<{videos: VideoResult[]}>("plugin:newpipe|search", { query });
+      const seen = new Set<string>();
+      return response.videos.filter(v => {
+        if (!v.videoId || seen.has(v.videoId)) return false;
+        seen.add(v.videoId);
+        return true;
+      });
+    } catch (e) {
+      console.error("NewPipe search failed:", e);
+      throw e;
+    }
+  }
+
   const yt = await getClient();
   const search = await yt.search(query, { type: "video" });
 
@@ -201,11 +217,27 @@ export async function getVideoDetails(
     authorAvatar: fixUrl(ownerThumb),
     lengthSeconds: basic.duration ?? 0,
     viewCount: basic.view_count ?? 0,
-    dashManifestUrl: getDashManifestUrl(videoId),
+    dashManifestUrl: await getDashManifestUrl(videoId),
   };
 }
 
 export async function getChannelVideos(channelId: string): Promise<VideoResult[]> {
+  const isAndroid = (window as any).__TAURI_INTERNALS__?.platform === "android";
+  if (isAndroid) {
+    try {
+      const response = await invoke<{videos: VideoResult[]}>("plugin:newpipe|get_channel_videos", { channelId });
+      const seen = new Set<string>();
+      return response.videos.filter(v => {
+        if (!v.videoId || seen.has(v.videoId)) return false;
+        seen.add(v.videoId);
+        return true;
+      });
+    } catch (e) {
+      console.error("NewPipe channel fetch failed:", e);
+      throw e;
+    }
+  }
+
   const yt = await getClient();
   const channel = await yt.getChannel(channelId);
 
