@@ -7,6 +7,7 @@
     "core:default",
     "opener:default",
     "shell:default",
+    "core:webview:allow-clear-all-browsing-data",
     {
       "identifier": "shell:allow-execute",
       "allow": [

@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
-import { checkDbExists, initDatabase, resetDatabase } from "../db";
+import { checkDbExists, initDatabase } from "../db";
 import { VideoIcon } from "./icons/VideoIcon";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 interface Props {
   onUnlock: () => void;
+}
+
+async function resetDatabase(): Promise<void> {
+  await getCurrentWebview().clearAllBrowsingData();
 }
 
 export default function PasswordPrompt({ onUnlock }: Props) {
@@ -19,7 +24,9 @@ export default function PasswordPrompt({ onUnlock }: Props) {
       setIsSetup(!exists);
       if (!exists) {
         // Auto-generate secure password for new setup
-        setPassword(crypto.randomUUID() + "-" + crypto.randomUUID().slice(0, 8));
+        setPassword(
+          crypto.randomUUID() + "-" + crypto.randomUUID().slice(0, 8),
+        );
       }
       setIsChecking(false);
     });
@@ -34,7 +41,9 @@ export default function PasswordPrompt({ onUnlock }: Props) {
       await initDatabase(password);
       onUnlock();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initialize database");
+      setError(
+        err instanceof Error ? err.message : "Failed to initialize database",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -43,13 +52,18 @@ export default function PasswordPrompt({ onUnlock }: Props) {
   const handleReset = async () => {
     setError("");
     setIsLoading(true);
+
     try {
       await resetDatabase();
-      setIsSetup(true);
-      setPassword(crypto.randomUUID() + "-" + crypto.randomUUID().slice(0, 8));
-      setShowConfirmReset(false);
+      window.location.reload();
+
+      // setIsSetup(true);
+      // setPassword(crypto.randomUUID() + "-" + crypto.randomUUID().slice(0, 8));
+      // setShowConfirmReset(false);
     } catch (err) {
-      setError("Failed to reset database");
+      console.error("Database reset failed:", err);
+
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +96,9 @@ export default function PasswordPrompt({ onUnlock }: Props) {
           <form onSubmit={handleSubmit} className="w-full">
             <div className="form-control w-full">
               <label className="label">
-                <span className="label-text font-semibold">Database Password</span>
+                <span className="label-text font-semibold">
+                  Database Password
+                </span>
               </label>
               <input
                 type="text"
@@ -137,7 +153,8 @@ export default function PasswordPrompt({ onUnlock }: Props) {
                 <div className="w-full bg-error/10 p-4 rounded-box border border-error/20 mt-2 text-left">
                   <p className="text-error font-bold mb-2">Are you sure?</p>
                   <p className="text-sm mb-4">
-                    This will permanently delete your existing database, including all local subscriptions and settings.
+                    This will permanently delete your existing database,
+                    including all local subscriptions and settings.
                   </p>
                   <div className="flex gap-2">
                     <button
